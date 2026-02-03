@@ -4,13 +4,13 @@
             <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-3 py-2 flex items-center justify-between gap-3 text-xs">
                 <div>
                     <div class="font-medium">
-                        {{ event.get_type_display }} · {{ event.amount }} 
+                        {{ event.get_bonus_type_display }} · {{ event.amount }} 
                         <span class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             {{ event.status }}
                         </span>
                     </div>
                     <div class="text-[11px] text-slate-500 dark:text-slate-400">
-                        From order #{{ event.order_id }} · depth {{ event.depth }}
+                        From order #{{ event.order_id }} · depth {{ event.depth|default:"—" }}
                     </div>
                 </div>
                 <div class="text-[10px] text-slate-400 dark:text-slate-500 text-right">

@@ -1,3 +1,5 @@
+import os
+
 """
 Django settings for core project.
 
@@ -85,7 +87,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'db_fresh.sqlite3',
     }
 }
 
@@ -131,3 +133,18 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom user model (referred_by immutable per MDC)
+AUTH_USER_MODEL = "users.User"
+
+# Login required redirect (dashboard uses @login_required)
+LOGIN_URL = "/admin/login/"
+LOGIN_REDIRECT_URL = "/"
+
+# Celery (bonus calculations run async only)
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_ALWAYS_EAGER", "false").lower() == "true"

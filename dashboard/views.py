@@ -1,22 +1,44 @@
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.shortcuts import render
+
+from bonuses.models import BonusEvent
+from tree.models import PairingCounter, TreeNode
 
 
 @login_required
 def dashboard_view(request):
     """
-    High-level referral dashboard shell.
-    Backend will later supply real stats based on MDC rules.
+    High-level referral dashboard. Stats from tree and bonus_events only (subtree / user).
     """
-    # Placeholder stats; will be wired to real aggregates later.
+    user = request.user
+    try:
+        node = user.tree_node
+        total_referrals = TreeNode.objects.filter(parent=node).count()
+    except TreeNode.DoesNotExist:
+        total_referrals = 0
+    counter, _ = PairingCounter.objects.get_or_create(
+        user=user,
+        defaults={"left_count": 0, "right_count": 0, "released_pairs": 0},
+    )
+    left_count, right_count = counter.left_count, counter.right_count
+
+    bonus_qs = BonusEvent.objects.filter(user=user)
+    direct = bonus_qs.filter(bonus_type=BonusEvent.BonusType.DIRECT).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+    hierarchy = bonus_qs.filter(bonus_type=BonusEvent.BonusType.HIERARCHY).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+    released = bonus_qs.filter(status=BonusEvent.Status.RELEASED).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+    pending = bonus_qs.filter(status=BonusEvent.Status.PENDING).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+
     stats = {
-        "total_referrals": 0,
-        "left_count": 0,
-        "right_count": 0,
-        "direct_bonus": "0.00",
-        "hierarchy_bonus": "0.00",
-        "released_bonus": "0.00",
-        "pending_bonus": "0.00",
+        "total_referrals": total_referrals,
+        "left_count": left_count,
+        "right_count": right_count,
+        "direct_bonus": f"{direct:.2f}",
+        "hierarchy_bonus": f"{hierarchy:.2f}",
+        "released_bonus": f"{released:.2f}",
+        "pending_bonus": f"{pending:.2f}",
     }
     return render(request, "dashboard/dashboard.html", {"stats": stats})
 
@@ -24,12 +46,15 @@ def dashboard_view(request):
 @login_required
 def tree_fragment(request):
     """
-    HTMX fragment for the binary tree.
-    Initially a visual shell only.
+    HTMX fragment for the binary tree (own subtree). Lane counts from PairingCounter.
     """
+    counter, _ = PairingCounter.objects.get_or_create(
+        user=request.user,
+        defaults={"left_count": 0, "right_count": 0, "released_pairs": 0},
+    )
     lane = {
-        "left": {"pending": 0},
-        "right": {"pending": 0},
+        "left": {"pending": counter.left_count},
+        "right": {"pending": counter.right_count},
     }
     return render(request, "dashboard/_tree_fragment.html", {"lane": lane})
 
@@ -37,9 +62,12 @@ def tree_fragment(request):
 @login_required
 def bonus_events_fragment(request):
     """
-    HTMX fragment for the most recent bonus ledger events.
-    Initially empty; will be backed by bonuses app.
+    HTMX fragment for the most recent bonus ledger events (user's bonus_events).
     """
-    events = []
+    events = (
+        BonusEvent.objects.filter(user=request.user)
+        .select_related("order")
+        .order_by("-created_at")[:20]
+    )
     return render(request, "dashboard/_bonus_events_fragment.html", {"events": events})
 
