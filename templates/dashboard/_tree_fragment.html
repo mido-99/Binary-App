@@ -1,28 +1,25 @@
-{# Placeholder binary tree rendering; will be bound to real data later #}
-<div class="flex flex-col items-center gap-4">
-    <div class="inline-flex items-center gap-2 rounded-full bg-sky-50 dark:bg-sky-950/40 px-3 py-1">
-        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-        <span class="text-xs font-medium">You</span>
+<div class="flex flex-col items-center gap-6 py-2">
+    <div class="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--primary)/0.15)] px-4 py-2 border border-[hsl(var(--primary)/0.3)]">
+        <span class="h-2 w-2 rounded-full bg-[hsl(var(--primary))]"></span>
+        <span class="text-sm font-semibold text-[hsl(var(--fg))]">You</span>
     </div>
-    <div class="flex gap-8">
+    <div class="flex gap-6 sm:gap-10">
         <div class="min-w-[120px] text-center">
-            <div class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Left Lane</div>
-            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <div class="text-xs font-semibold mb-1">Pending units</div>
-                <div class="text-sm">{{ lane.left.pending|default:"0" }}</div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-fg))] mb-2">Left lane</div>
+            <div class="glass-card rounded-xl border border-[hsl(var(--border))] p-4">
+                <div class="text-2xl font-heading font-bold text-[hsl(var(--primary))]">{{ lane.left.pending|default:"0" }}</div>
+                <div class="text-xs text-[hsl(var(--muted-fg))] mt-1">Pending units</div>
             </div>
         </div>
         <div class="min-w-[120px] text-center">
-            <div class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Right Lane</div>
-            <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <div class="text-xs font-semibold mb-1">Pending units</div>
-                <div class="text-sm">{{ lane.right.pending|default:"0" }}</div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-fg))] mb-2">Right lane</div>
+            <div class="glass-card rounded-xl border border-[hsl(var(--border))] p-4">
+                <div class="text-2xl font-heading font-bold text-[hsl(var(--accent))]">{{ lane.right.pending|default:"0" }}</div>
+                <div class="text-xs text-[hsl(var(--muted-fg))] mt-1">Pending units</div>
             </div>
         </div>
     </div>
-    <p class="text-[11px] text-slate-500 dark:text-slate-400 max-w-md text-center">
-        This is a visual shell. Actual nodes and purchase-driven units will be rendered
-        from the binary tree once backend logic is connected.
+    <p class="text-xs text-[hsl(var(--muted-fg))] max-w-sm text-center">
+        Visual shell. Actual nodes and purchase-driven units render from the binary tree when backend is connected.
     </p>
 </div>
-

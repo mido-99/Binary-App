@@ -4,97 +4,103 @@
 
 {% block content %}
 <div class="grid gap-6 lg:grid-cols-3">
-    <section class="lg:col-span-2 space-y-4">
-        <div class="flex items-center justify-between gap-2">
-            <h1 class="text-lg font-semibold tracking-tight">Referral Overview</h1>
-            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span>L/R pairs drive all bonus releases.</span>
-            </div>
+    <section class="lg:col-span-2 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+            <h1 class="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-[hsl(var(--fg))]">
+                Referral overview
+            </h1>
+            <p class="text-sm text-[hsl(var(--muted-fg))]">
+                L/R pairs drive all bonus releases.
+            </p>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 p-4">
-                <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Totals</div>
-                <div class="mt-2 grid grid-cols-3 gap-2 text-sm">
+            <div class="glass-card stat-card rounded-2xl border border-[hsl(var(--border))] p-5 sm:p-6">
+                <div class="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-fg))]">Totals</div>
+                <div class="mt-4 grid grid-cols-3 gap-4">
                     <div>
-                        <div class="text-slate-500 dark:text-slate-400">Referrals</div>
-                        <div class="mt-1 text-base font-semibold">{{ stats.total_referrals|default:"0" }}</div>
+                        <div class="text-2xl sm:text-3xl font-heading font-bold text-[hsl(var(--fg))]">{{ stats.total_referrals|default:"0" }}</div>
+                        <div class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">Referrals</div>
                     </div>
                     <div>
-                        <div class="text-slate-500 dark:text-slate-400">L Count</div>
-                        <div class="mt-1 text-base font-semibold">{{ stats.left_count|default:"0" }}</div>
+                        <div class="text-2xl sm:text-3xl font-heading font-bold text-[hsl(var(--primary))]">{{ stats.left_count|default:"0" }}</div>
+                        <div class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">L count</div>
                     </div>
                     <div>
-                        <div class="text-slate-500 dark:text-slate-400">R Count</div>
-                        <div class="mt-1 text-base font-semibold">{{ stats.right_count|default:"0" }}</div>
+                        <div class="text-2xl sm:text-3xl font-heading font-bold text-[hsl(var(--accent))]">{{ stats.right_count|default:"0" }}</div>
+                        <div class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">R count</div>
                     </div>
                 </div>
             </div>
 
-            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 p-4">
-                <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Bonuses</div>
-                <dl class="mt-2 text-sm space-y-1">
-                    <div class="flex justify-between">
-                        <dt class="text-slate-500 dark:text-slate-400">Direct</dt>
-                        <dd class="font-semibold">{{ stats.direct_bonus|default:"0.00" }}</dd>
+            <div class="glass-card stat-card rounded-2xl border border-[hsl(var(--border))] p-5 sm:p-6">
+                <div class="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-fg))]">Bonuses</div>
+                <dl class="mt-4 space-y-3 text-sm">
+                    <div class="flex justify-between items-baseline">
+                        <dt class="text-[hsl(var(--muted-fg))]">Direct</dt>
+                        <dd class="font-heading font-bold text-[hsl(var(--fg))]">{{ stats.direct_bonus|default:"0.00" }}</dd>
                     </div>
-                    <div class="flex justify-between">
-                        <dt class="text-slate-500 dark:text-slate-400">Hierarchy</dt>
-                        <dd class="font-semibold">{{ stats.hierarchy_bonus|default:"0.00" }}</dd>
+                    <div class="flex justify-between items-baseline">
+                        <dt class="text-[hsl(var(--muted-fg))]">Hierarchy</dt>
+                        <dd class="font-heading font-bold text-[hsl(var(--fg))]">{{ stats.hierarchy_bonus|default:"0.00" }}</dd>
                     </div>
-                    <div class="flex justify-between text-xs">
-                        <dt class="text-slate-500 dark:text-slate-400">Released / Pending</dt>
-                        <dd class="font-medium">
-                            {{ stats.released_bonus|default:"0.00" }} /
-                            {{ stats.pending_bonus|default:"0.00" }}
+                    <div class="flex justify-between items-baseline text-xs pt-2 border-t border-[hsl(var(--border))]">
+                        <dt class="text-[hsl(var(--muted-fg))]">Released / Pending</dt>
+                        <dd class="font-semibold text-[hsl(var(--fg))]">
+                            {{ stats.released_bonus|default:"0.00" }} / {{ stats.pending_bonus|default:"0.00" }}
                         </dd>
                     </div>
                 </dl>
             </div>
         </div>
 
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
-            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div class="glass-card rounded-2xl border border-[hsl(var(--border))] overflow-hidden">
+            <div class="px-5 py-4 border-b border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                    <h2 class="text-sm font-semibold">Binary Tree</h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">You can only see your own subtree.</p>
+                    <h2 class="font-heading text-lg font-bold text-[hsl(var(--fg))]">Binary tree</h2>
+                    <p class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">You can only see your own subtree.</p>
                 </div>
-                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span> Active purchase
+                <div class="flex items-center gap-2 text-xs text-[hsl(var(--muted-fg))]">
+                    <span class="h-2 w-2 rounded-full bg-[hsl(var(--primary))]"></span> Active purchase
                 </div>
             </div>
             <div id="tree-panel"
-                 class="p-4 overflow-x-auto text-xs"
+                 class="p-5 sm:p-6 overflow-x-auto min-h-[120px]"
                  hx-get="{% url 'dashboard:tree-fragment' %}"
                  hx-trigger="load"
                  hx-target="#tree-panel"
                  hx-swap="innerHTML">
-                <div class="animate-pulse text-slate-400">Loading tree…</div>
+                <div class="flex items-center gap-2 text-[hsl(var(--muted-fg))] text-sm">
+                    <span class="inline-block w-4 h-4 border-2 border-[hsl(var(--muted-fg))] border-t-[hsl(var(--primary))] rounded-full animate-spin"></span>
+                    Loading tree…
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="space-y-4">
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 p-4">
-            <h2 class="text-sm font-semibold mb-2">Latest Bonus Events</h2>
+    <section class="space-y-6">
+        <div class="glass-card rounded-2xl border border-[hsl(var(--border))] p-5 sm:p-6">
+            <h2 class="font-heading text-lg font-bold text-[hsl(var(--fg))] mb-4">Latest bonus events</h2>
             <div id="bonus-events"
                  hx-get="{% url 'dashboard:bonus-events-fragment' %}"
                  hx-trigger="load, every 20s"
                  hx-target="#bonus-events"
                  hx-swap="innerHTML">
-                <div class="animate-pulse text-slate-400 text-xs">Streaming bonus ledger…</div>
+                <div class="flex items-center gap-2 text-[hsl(var(--muted-fg))] text-sm">
+                    <span class="inline-block w-4 h-4 border-2 border-[hsl(var(--muted-fg))] border-t-[hsl(var(--primary))] rounded-full animate-spin"></span>
+                    Loading…
+                </div>
             </div>
         </div>
 
-        <div class="rounded-xl border border-amber-200/70 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/40 p-4 text-xs text-amber-900 dark:text-amber-100">
-            <h3 class="font-semibold mb-1">Pairing & Bonus Rules</h3>
-            <ul class="space-y-1 list-disc list-inside">
+        <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/5 p-5 text-sm text-amber-900 dark:text-amber-100">
+            <h3 class="font-heading font-bold text-base mb-2">Pairing & bonus rules</h3>
+            <ul class="space-y-1.5 list-disc list-inside text-amber-800 dark:text-amber-200">
                 <li>Bonuses only come from purchases, never signups.</li>
-                <li>Pairs form when <code>min(L, R)</code> increases on an ancestor.</li>
+                <li>Pairs form when <code class="px-1 py-0.5 rounded bg-amber-500/20 font-mono text-xs">min(L, R)</code> increases on an ancestor.</li>
                 <li>Hierarchy pool decays with depth and stops at depth 15.</li>
             </ul>
         </div>
     </section>
 </div>
 {% endblock %}
-

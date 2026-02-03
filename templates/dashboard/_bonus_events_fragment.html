@@ -1,27 +1,26 @@
-<div class="space-y-2 max-h-80 overflow-y-auto">
+<div class="space-y-2 max-h-80 overflow-y-auto pr-1">
     {% if events %}
         {% for event in events %}
-            <div class="rounded-lg border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-3 py-2 flex items-center justify-between gap-3 text-xs">
-                <div>
-                    <div class="font-medium">
-                        {{ event.get_bonus_type_display }} · {{ event.amount }} 
-                        <span class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {{ event.status }}
-                        </span>
+            <div class="glass-card rounded-xl border border-[hsl(var(--border))] px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
+                <div class="min-w-0">
+                    <div class="font-semibold text-[hsl(var(--fg))]">
+                        {{ event.get_bonus_type_display }} · {{ event.amount }}
+                        <span class="text-xs font-normal uppercase tracking-wider text-[hsl(var(--muted-fg))] ml-1">{{ event.status }}</span>
                     </div>
-                    <div class="text-[11px] text-slate-500 dark:text-slate-400">
-                        From order #{{ event.order_id }} · depth {{ event.depth|default:"—" }}
+                    <div class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">
+                        Order #{{ event.order_id }} · depth {{ event.depth|default:"—" }}
                     </div>
                 </div>
-                <div class="text-[10px] text-slate-400 dark:text-slate-500 text-right">
-                    {{ event.created_at|date:"Y-m-d H:i" }}
+                <div class="text-xs text-[hsl(var(--muted-fg))] shrink-0">
+                    {{ event.created_at|date:"M j, Y H:i" }}
                 </div>
             </div>
         {% endfor %}
     {% else %}
-        <p class="text-xs text-slate-500 dark:text-slate-400">
-            No bonus events yet. Bonuses appear here only when purchase-triggered L/R pairs form.
-        </p>
+        <div class="rounded-xl border border-[hsl(var(--border))] border-dashed p-6 text-center">
+            <p class="text-sm text-[hsl(var(--muted-fg))]">
+                No bonus events yet. Bonuses appear here when purchase-triggered L/R pairs form.
+            </p>
+        </div>
     {% endif %}
 </div>
-
