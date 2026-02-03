@@ -1,0 +1,60 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full" x-data="{ dark: localStorage.getItem('theme') === 'dark' }"
+      x-init="$watch('dark', value => { localStorage.setItem('theme', value ? 'dark' : 'light'); document.documentElement.classList.toggle('dark', value); })">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Binary Referral Commerce{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Tailwind CSS (CDN for now) -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <!-- Alpine.js for simple interactivity -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="icon" href="{% static 'img/favicon.ico' %}">
+</head>
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<div class="min-h-full flex flex-col">
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+            <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                    B
+                </div>
+                <div>
+                    <div class="font-semibold text-sm">Binary Referral Commerce</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Pair-based referral earnings, purchase only</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button type="button"
+                        @click="dark = !dark"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                    <span x-show="!dark">🌞 Light</span>
+                    <span x-show="dark">🌙 Dark</span>
+                </button>
+                {% if request.user.is_authenticated %}
+                    <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">
+                        {{ request.user.email|default:request.user.username }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1">
+        <div class="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-200 dark:border-slate-800 py-3 text-center text-xs text-slate-500 dark:text-slate-500">
+        Binary Referral Commerce System — bonuses only from purchases, pairs on L/R lanes.
+    </footer>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
+

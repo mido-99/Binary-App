@@ -1,0 +1,45 @@
+>>> total = 0
+>>> for i in range(1, 20):
+...     takes = 100 * (30/i/100)
+...     print(f"Depth {i} takes {takes}")
+...     total += takes
+...     print(total)
+...
+Depth 1 takes 30.0
+30.0
+Depth 2 takes 15.0
+45.0
+Depth 3 takes 10.0
+55.0
+Depth 4 takes 7.5
+62.5
+Depth 5 takes 6.0
+68.5
+Depth 6 takes 5.0
+73.5
+Depth 7 takes 4.285714285714286
+77.78571428571429
+Depth 8 takes 3.75
+81.53571428571429
+Depth 9 takes 3.3333333333333335
+84.86904761904762
+Depth 10 takes 3.0
+87.86904761904762
+Depth 11 takes 2.727272727272727
+90.59632034632035
+Depth 12 takes 2.5
+93.09632034632035
+Depth 13 takes 2.3076923076923075
+95.40401265401266
+Depth 14 takes 2.142857142857143
+97.5468697968698
+Depth 15 takes 2.0
+99.5468697968698
+Depth 16 takes 1.875
+101.4218697968698
+Depth 17 takes 1.7647058823529411
+103.18657567922274
+Depth 18 takes 1.6666666666666667
+104.85324234588941
+Depth 19 takes 1.5789473684210527
+106.43218971431047

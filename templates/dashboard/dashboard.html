@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · Binary Referral{% endblock %}
+
+{% block content %}
+<div class="grid gap-6 lg:grid-cols-3">
+    <section class="lg:col-span-2 space-y-4">
+        <div class="flex items-center justify-between gap-2">
+            <h1 class="text-lg font-semibold tracking-tight">Referral Overview</h1>
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>L/R pairs drive all bonus releases.</span>
+            </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 p-4">
+                <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Totals</div>
+                <div class="mt-2 grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                        <div class="text-slate-500 dark:text-slate-400">Referrals</div>
+                        <div class="mt-1 text-base font-semibold">{{ stats.total_referrals|default:"0" }}</div>
+                    </div>
+                    <div>
+                        <div class="text-slate-500 dark:text-slate-400">L Count</div>
+                        <div class="mt-1 text-base font-semibold">{{ stats.left_count|default:"0" }}</div>
+                    </div>
+                    <div>
+                        <div class="text-slate-500 dark:text-slate-400">R Count</div>
+                        <div class="mt-1 text-base font-semibold">{{ stats.right_count|default:"0" }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 p-4">
+                <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Bonuses</div>
+                <dl class="mt-2 text-sm space-y-1">
+                    <div class="flex justify-between">
+                        <dt class="text-slate-500 dark:text-slate-400">Direct</dt>
+                        <dd class="font-semibold">{{ stats.direct_bonus|default:"0.00" }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-slate-500 dark:text-slate-400">Hierarchy</dt>
+                        <dd class="font-semibold">{{ stats.hierarchy_bonus|default:"0.00" }}</dd>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <dt class="text-slate-500 dark:text-slate-400">Released / Pending</dt>
+                        <dd class="font-medium">
+                            {{ stats.released_bonus|default:"0.00" }} /
+                            {{ stats.pending_bonus|default:"0.00" }}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold">Binary Tree</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">You can only see your own subtree.</p>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span> Active purchase
+                </div>
+            </div>
+            <div id="tree-panel"
+                 class="p-4 overflow-x-auto text-xs"
+                 hx-get="{% url 'dashboard:tree-fragment' %}"
+                 hx-trigger="load"
+                 hx-target="#tree-panel"
+                 hx-swap="innerHTML">
+                <div class="animate-pulse text-slate-400">Loading tree…</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="space-y-4">
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 p-4">
+            <h2 class="text-sm font-semibold mb-2">Latest Bonus Events</h2>
+            <div id="bonus-events"
+                 hx-get="{% url 'dashboard:bonus-events-fragment' %}"
+                 hx-trigger="load, every 20s"
+                 hx-target="#bonus-events"
+                 hx-swap="innerHTML">
+                <div class="animate-pulse text-slate-400 text-xs">Streaming bonus ledger…</div>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-amber-200/70 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/40 p-4 text-xs text-amber-900 dark:text-amber-100">
+            <h3 class="font-semibold mb-1">Pairing & Bonus Rules</h3>
+            <ul class="space-y-1 list-disc list-inside">
+                <li>Bonuses only come from purchases, never signups.</li>
+                <li>Pairs form when <code>min(L, R)</code> increases on an ancestor.</li>
+                <li>Hierarchy pool decays with depth and stops at depth 15.</li>
+            </ul>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
