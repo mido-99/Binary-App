@@ -20,7 +20,11 @@ class Product(models.Model):
     )
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, blank=True)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, help_text="Short/brief description for listing.")
+    full_description = models.TextField(
+        blank=True,
+        help_text="Full description for item detail page (HTML or plain text).",
+    )
     category = models.CharField(
         max_length=32,
         choices=Category.choices,
@@ -29,6 +33,20 @@ class Product(models.Model):
     )
     base_price = models.DecimalField(max_digits=12, decimal_places=2)
     markup_price = models.DecimalField(max_digits=12, decimal_places=2)
+    discount_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Discount percentage (e.g. 15 for 15%% off).",
+    )
+    sale_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="If set, shown as current price (discounted).",
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:

@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
 import { StorePage } from "@/pages/StorePage";
+import { ItemPage } from "@/pages/ItemPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import "@/styles/globals.css";
 
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<AppLayout />}>
           <Route index element={<StorePage />} />
+          <Route path="item/:id" element={<ItemPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
           <Route

@@ -1,10 +1,4 @@
+# React SPA handles login/signup. No Django template routes.
 from django.urls import path
 
-from . import views
-
-app_name = "users"
-
-urlpatterns = [
-    path("login/", views.login_view, name="login"),
-    path("signup/", views.signup_view, name="signup"),
-]
+urlpatterns = []

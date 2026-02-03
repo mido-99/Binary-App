@@ -17,6 +17,25 @@ from tree.models import PairingCounter, TreeNode
 from users.models import User
 
 
+def _product_list_item(p):
+    """Shared payload for list and detail (list uses brief description)."""
+    out = {
+        "id": p.id,
+        "name": p.name,
+        "description": p.description or "",
+        "category": p.category,
+        "category_display": p.get_category_display(),
+        "base_price": str(p.base_price),
+        "markup_price": str(p.markup_price),
+        "store_name": p.store.name,
+    }
+    if p.discount_percent is not None:
+        out["discount_percent"] = str(p.discount_percent)
+    if p.sale_price is not None:
+        out["sale_price"] = str(p.sale_price)
+    return out
+
+
 def _parse_json(request):
     try:
         return json.loads(request.body) if request.body else {}
@@ -92,20 +111,35 @@ def api_products(request):
         qs = qs.order_by("-markup_price")
     elif sort == "name":
         qs = qs.order_by("name")
-    products = [
-        {
-            "id": p.id,
-            "name": p.name,
-            "description": p.description or "",
-            "category": p.category,
-            "category_display": p.get_category_display(),
-            "base_price": str(p.base_price),
-            "markup_price": str(p.markup_price),
-            "store_name": p.store.name,
-        }
-        for p in qs
-    ]
+    products = [_product_list_item(p) for p in qs]
     return JsonResponse({"products": products, "categories": list(Product.Category.choices)})
+
+
+@require_GET
+def api_product_detail(request, pk):
+    """Full product for item detail page: description, prices, discounts, store, seller."""
+    qs = (
+        Product.objects.filter(pk=pk, is_active=True)
+        .select_related("store", "store__seller_ref", "store__seller_ref__owner")
+    )
+    try:
+        p = qs.get()
+    except Product.DoesNotExist:
+        return JsonResponse({"error": "Product not found."}, status=404)
+    payload = _product_list_item(p)
+    payload["full_description"] = p.full_description or p.description or ""
+    seller = getattr(p.store, "seller_ref", None)
+    payload["store"] = {
+        "id": p.store.id,
+        "name": p.store.name,
+    }
+    payload["seller"] = None
+    if seller and getattr(seller, "owner", None):
+        payload["seller"] = {
+            "id": seller.owner_id,
+            "email": seller.owner.email,
+        }
+    return JsonResponse(payload)
 
 
 @require_GET

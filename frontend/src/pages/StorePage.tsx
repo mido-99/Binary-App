@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -14,6 +15,8 @@ type Product = {
   category_display: string;
   markup_price: string;
   store_name: string;
+  discount_percent?: string;
+  sale_price?: string;
 };
 
 type ApiResponse = { products: Product[]; categories: [string, string][] };
@@ -141,28 +144,37 @@ export function StorePage() {
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.25, delay: i * 0.03 }}
                 >
-                  <motion.div whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
-                    <Card className="overflow-hidden h-full group cursor-pointer">
-                      <div className="aspect-square bg-muted/50 flex items-center justify-center text-muted-foreground text-5xl font-heading font-bold group-hover:bg-muted transition-colors">
-                        {product.name.charAt(0).toUpperCase()}
-                      </div>
-                      <CardContent className="p-5">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                          {product.category_display}
-                        </span>
-                        <h2 className="mt-2 font-heading text-xl font-bold group-hover:text-primary transition-colors">
-                          {product.name}
-                        </h2>
-                        <p className="mt-2 text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                          {product.description || "No description."}
-                        </p>
-                        <div className="mt-4 flex items-baseline justify-between gap-2">
-                          <span className="font-heading text-2xl font-bold">${product.markup_price}</span>
-                          <span className="text-xs text-muted-foreground truncate">{product.store_name}</span>
+                  <Link to={`/item/${product.id}`}>
+                    <motion.div whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
+                      <Card className="overflow-hidden h-full group cursor-pointer">
+                        <div className="aspect-square bg-muted/50 flex items-center justify-center text-muted-foreground text-5xl font-heading font-bold group-hover:bg-muted transition-colors">
+                          {product.name.charAt(0).toUpperCase()}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+                        <CardContent className="p-5">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                            {product.category_display}
+                          </span>
+                          <h2 className="mt-2 font-heading text-xl font-bold group-hover:text-primary transition-colors">
+                            {product.name}
+                          </h2>
+                          <p className="mt-2 text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                            {product.description || "No description."}
+                          </p>
+                          <div className="mt-4 flex items-baseline justify-between gap-2 flex-wrap">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-heading text-2xl font-bold">
+                                ${product.sale_price ?? product.markup_price}
+                              </span>
+                              {product.sale_price != null && (
+                                <span className="text-sm text-muted-foreground line-through">${product.markup_price}</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground truncate">{product.store_name}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </Link>
                 </motion.li>
               ))}
             </AnimatePresence>
