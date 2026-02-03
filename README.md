@@ -1,8 +1,12 @@
 # Binary Referral Commerce
 
-Django + HTMX + Tailwind app: purchase-triggered, pair-based referral bonuses (see `.cursor/rules/` for business rules).
+Purchase-triggered, pair-based referral bonuses (see `.cursor/rules/` for business rules).
 
-## Run locally and open in browser
+**Frontend (rules/frontend has priority):** React SPA in `frontend/` — Vite, TypeScript, Tailwind, Framer Motion, React Flow, TanStack Query, React Hook Form + Zod, Sonner.  
+**Backend:** Django REST API (auth, products, dashboard, tree).  
+Legacy Django templates + HTMX remain under `/login`, `/signup`, `/dashboard/` (server-rendered) when not using the SPA.
+
+## Run the React frontend (recommended)
 
 1. **Start the server**
    ```bash
