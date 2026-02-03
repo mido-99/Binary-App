@@ -144,11 +144,7 @@ Bonus Types:
 
 # Frontend Architecture
 
-- Backend: Django
-- Frontend: Django Templates + HTMX
-- Styling: TailwindCSS
-- UI supports light/dark mode toggle
-- No SPA framework in current scope
+Shown in frontend rules.
 
 ---
 

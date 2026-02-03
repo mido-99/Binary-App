@@ -1,8 +1,11 @@
 from decimal import Decimal
 
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
-from django.shortcuts import render
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET
 
 from bonuses.models import BonusEvent
 from tree.models import PairingCounter, TreeNode
@@ -70,4 +73,44 @@ def bonus_events_fragment(request):
         .order_by("-created_at")[:20]
     )
     return render(request, "dashboard/_bonus_events_fragment.html", {"events": events})
+
+
+@login_required
+@require_GET
+def tree_data_json(request):
+    """
+    JSON endpoint for the current user's subtree: nodes and edges for interactive graph.
+    """
+    user = request.user
+    try:
+        root = user.tree_node
+    except TreeNode.DoesNotExist:
+        return JsonResponse({"nodes": [], "edges": []})
+
+    nodes_list = [root]
+    stack = [root]
+    while stack:
+        n = stack.pop()
+        for c in TreeNode.objects.filter(parent=n).select_related("user"):
+            nodes_list.append(c)
+            stack.append(c)
+
+    nodes = [
+        {
+            "id": n.id,
+            "label": n.user.email or f"User {n.user_id}",
+            "lane": n.lane,
+            "depth": n.depth,
+            "is_current_user": n.user_id == user.id,
+        }
+        for n in nodes_list
+    ]
+    edges = [{"from": n.parent_id, "to": n.id} for n in nodes_list if n.parent_id is not None]
+    return JsonResponse({"nodes": nodes, "edges": edges})
+
+
+def logout_view(request):
+    """Log out and redirect to site login (isolated from admin)."""
+    logout(request)
+    return redirect("users:login")
 

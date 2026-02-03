@@ -6,14 +6,24 @@ Django + HTMX + Tailwind app: purchase-triggered, pair-based referral bonuses (s
 
 1. **Start the server**
    ```bash
+   
    uv run python manage.py runserver
    ```
 2. **Open in browser**
    - **Store (homepage):** [http://127.0.0.1:8000/](http://127.0.0.1:8000/) — product grid, categories, filters, sort
+   - **Log in / Sign up:** [http://127.0.0.1:8000/login/](http://127.0.0.1:8000/login/) and [http://127.0.0.1:8000/signup/](http://127.0.0.1:8000/signup/) — site auth (separate from Django admin)
    - **Your dashboard:** [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/) — referral overview (login required)
-   - **Admin:** [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+   - **Admin (Django):** [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/) — staff only, not linked from main site
 
-Use the header links **Shop**, **Dashboard**, and **Admin** to move between the store, your referral dashboard, and the admin panel.
+Site login is **isolated from admin**: logging out from the site sends you to the site login page, not admin.
+
+## Demo data (stores, sellers, products)
+
+```bash
+uv run python manage.py load_demo_data
+```
+
+Creates 4 demo stores with 12 products (tech, fashion, home, outdoor). Demo seller accounts use password `demo1234`. Run again without `--force` is idempotent; use `--force` to replace.
 
 ## Database: one DB for the whole app
 

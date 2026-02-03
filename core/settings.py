@@ -154,9 +154,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model (referred_by immutable per MDC)
 AUTH_USER_MODEL = "users.User"
 
-# Login required redirect (dashboard uses @login_required)
-LOGIN_URL = "/admin/login/"
+# Site auth (isolated from admin). @login_required redirects here.
+LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"
 
 # Celery (bonus calculations run async only)
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")

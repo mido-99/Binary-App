@@ -58,22 +58,15 @@
             <div class="px-5 py-4 border-b border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                     <h2 class="font-heading text-lg font-bold text-[hsl(var(--fg))]">Binary tree</h2>
-                    <p class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">You can only see your own subtree.</p>
+                    <p class="text-xs text-[hsl(var(--muted-fg))] mt-0.5">Drag to pan · scroll to zoom · drag nodes to reposition. Your subtree only.</p>
                 </div>
                 <div class="flex items-center gap-2 text-xs text-[hsl(var(--muted-fg))]">
-                    <span class="h-2 w-2 rounded-full bg-[hsl(var(--primary))]"></span> Active purchase
+                    <span class="h-2 w-2 rounded-full bg-[hsl(var(--primary))]"></span> You
                 </div>
             </div>
-            <div id="tree-panel"
-                 class="p-5 sm:p-6 overflow-x-auto min-h-[120px]"
-                 hx-get="{% url 'dashboard:tree-fragment' %}"
-                 hx-trigger="load"
-                 hx-target="#tree-panel"
-                 hx-swap="innerHTML">
-                <div class="flex items-center gap-2 text-[hsl(var(--muted-fg))] text-sm">
-                    <span class="inline-block w-4 h-4 border-2 border-[hsl(var(--muted-fg))] border-t-[hsl(var(--primary))] rounded-full animate-spin"></span>
-                    Loading tree…
-                </div>
+            <div id="tree-graph" class="w-full min-h-[420px] bg-[hsl(var(--muted)/0.2)] rounded-b-2xl" role="img" aria-label="Binary referral tree diagram"></div>
+            <div id="tree-graph-empty" class="hidden p-8 text-center text-sm text-[hsl(var(--muted-fg))]">
+                You are not yet in the tree. Tree placement happens when you are referred.
             </div>
         </div>
     </section>
@@ -103,4 +96,76 @@
         </div>
     </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/vis-data@latest/standalone/umd/vis-data.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vis-network@latest/standalone/umd/vis-network.min.js"></script>
+<script>
+(function() {
+    var container = document.getElementById('tree-graph');
+    var emptyEl = document.getElementById('tree-graph-empty');
+    if (!container) return;
+
+    fetch('{% url "dashboard:tree-data" %}', {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.nodes || data.nodes.length === 0) {
+            container.classList.add('hidden');
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            return;
+        }
+        var nodes = new vis.DataSet(data.nodes.map(function(n) {
+            return {
+                id: n.id,
+                label: n.label,
+                level: n.depth,
+                color: n.is_current_user ? { background: '#10B981', border: '#059669' } : { background: '#e2e8f0', border: '#94a3b8' },
+                font: { color: n.is_current_user ? '#fff' : '#1e293b', size: 14 },
+                shape: 'box',
+                margin: 10
+            };
+        }));
+        var edges = new vis.DataSet(data.edges.map(function(e) {
+            return { from: e.from, to: e.to, arrows: 'to', color: '#94a3b8' };
+        }));
+        var net = new vis.Network(container, { nodes: nodes, edges: edges }, {
+            layout: {
+                hierarchical: {
+                    enabled: true,
+                    direction: 'UD',
+                    sortMethod: 'directed',
+                    levelSeparation: 80,
+                    nodeSpacing: 120,
+                    treeSpacing: 140
+                }
+            },
+            physics: { enabled: false },
+            nodes: { borderWidth: 2 },
+            edges: { width: 1.5 },
+            interaction: {
+                dragNodes: true,
+                dragView: true,
+                zoomView: true,
+                hover: true
+            }
+        });
+        net.fit({ animation: { duration: 300 } });
+        net.on('click', function(params) {
+            if (params.nodes.length) {
+                var id = params.nodes[0];
+                var n = data.nodes.find(function(x) { return x.id === id; });
+                if (n) console.log('Node:', n.label, n.lane, 'depth', n.depth);
+            }
+        });
+    })
+    .catch(function() {
+        container.classList.add('hidden');
+        if (emptyEl) { emptyEl.classList.remove('hidden'); emptyEl.textContent = 'Could not load tree.'; }
+    });
+})();
+</script>
 {% endblock %}
