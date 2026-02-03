@@ -3,5 +3,11 @@ name = "binary-app"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.0,<6",
+    "celery[redis]>=5",
+    "redis>=4",
+]
+[project.optional-dependencies]
+postgres = ["dj-database-url>=2", "psycopg[binary]>=3"]

@@ -1,43 +1,64 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full" x-data="{ dark: localStorage.getItem('theme') === 'dark' }"
-      x-init="$watch('dark', value => { localStorage.setItem('theme', value ? 'dark' : 'light'); document.documentElement.classList.toggle('dark', value); })">
+<html lang="en" class="h-full" x-data="{ dark: document.documentElement.classList.contains('dark') }"
+      x-init="
+        dark = document.documentElement.classList.contains('dark');
+        $watch('dark', value => {
+          localStorage.setItem('theme', value ? 'dark' : 'light');
+          document.documentElement.classList.toggle('dark', value);
+        });
+      ">
 <head>
     <meta charset="utf-8">
     <title>{% block title %}Binary Referral Commerce{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Tailwind CSS (CDN for now) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
-    <!-- Alpine.js for simple interactivity -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 <body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 <div class="min-h-full flex flex-col">
-    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-            <div class="flex items-center gap-3">
-                <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold">
-                    B
-                </div>
-                <div>
+            <a href="{% url 'storefront:home' %}" class="flex items-center gap-3 no-underline text-inherit shrink-0">
+                <img src="{{ MEDIA_URL }}logo/valor.jpg" alt="Binary Referral Commerce" class="h-9 w-auto object-contain rounded-lg" />
+                <div class="hidden sm:block">
                     <div class="font-semibold text-sm">Binary Referral Commerce</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">Pair-based referral earnings, purchase only</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Shop · Pair-based referral earnings</div>
                 </div>
-            </div>
-            <div class="flex items-center gap-4">
-                <button type="button"
-                        @click="dark = !dark"
-                        class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-                    <span x-show="!dark">🌞 Light</span>
-                    <span x-show="dark">🌙 Dark</span>
-                </button>
-                {% if request.user.is_authenticated %}
-                    <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">
-                        {{ request.user.email|default:request.user.username }}
-                    </span>
-                {% endif %}
-            </div>
+            </a>
+            <nav class="flex items-center gap-2 sm:gap-4">
+                <a href="{% url 'storefront:home' %}" class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline">Shop</a>
+                <a href="{% url 'dashboard:index' %}" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:underline">Dashboard</a>
+                <a href="/admin/" class="text-sm font-medium text-slate-500 dark:text-slate-400 hover:underline">Admin</a>
+                <div class="ml-2 sm:ml-4 flex items-center gap-2">
+                    {% if request.user.is_authenticated %}
+                        <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400 truncate max-w-[120px]">
+                            {{ request.user.email|default:request.user.username }}
+                        </span>
+                    {% endif %}
+                    <button type="button"
+                            @click="dark = !dark"
+                            class="p-2 rounded-full border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            aria-label="Toggle dark mode">
+                        <span x-show="!dark" class="inline-flex" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        </span>
+                        <span x-show="dark" class="inline-flex" aria-hidden="true" x-cloak>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                        </span>
+                    </button>
+                </div>
+            </nav>
         </div>
     </header>
 
@@ -48,11 +69,10 @@
     </main>
 
     <footer class="border-t border-slate-200 dark:border-slate-800 py-3 text-center text-xs text-slate-500 dark:text-slate-500">
-        Binary Referral Commerce System — bonuses only from purchases, pairs on L/R lanes.
+        Binary Referral Commerce — bonuses only from purchases, pairs on L/R lanes.
     </footer>
 </div>
-
+<style>[x-cloak]{display:none!important}</style>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
-

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Store · Binary Referral Commerce{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <section>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Shop
+        </h1>
+        <p class="mt-1 text-slate-600 dark:text-slate-400">
+            Browse products from our stores. Every purchase supports the referral network.
+        </p>
+    </section>
+
+    <section class="flex flex-col sm:flex-row gap-4 flex-wrap items-end justify-between">
+        <form method="get" action="{% url 'storefront:home' %}" class="flex flex-wrap gap-3 items-center">
+            <input type="hidden" name="sort" value="{{ current_sort }}">
+            {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+            <label class="sr-only" for="q">Search</label>
+            <input type="search"
+                   id="q"
+                   name="q"
+                   value="{{ search_query }}"
+                   placeholder="Search products…"
+                   class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+            <button type="submit" class="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 px-4 py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-300 transition">
+                Search
+            </button>
+        </form>
+        <div class="flex flex-wrap gap-3 items-center">
+            <form method="get" class="flex items-center gap-2" id="filter-form">
+                {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+                <label for="category" class="text-sm text-slate-600 dark:text-slate-400">Category</label>
+                <select name="category"
+                        id="category"
+                        onchange="this.form.submit()"
+                        class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm px-3 py-2 focus:ring-sky-500 focus:border-sky-500">
+                    <option value="">All</option>
+                    {% for value, label in categories %}
+                        <option value="{{ value }}" {% if current_category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="sort" value="{{ current_sort }}">
+            </form>
+            <form method="get" class="flex items-center gap-2" id="sort-form">
+                {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+                {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+                <label for="sort" class="text-sm text-slate-600 dark:text-slate-400">Sort</label>
+                <select name="sort"
+                        id="sort"
+                        onchange="this.form.submit()"
+                        class="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm px-3 py-2 focus:ring-sky-500 focus:border-sky-500">
+                    <option value="newest" {% if current_sort == "newest" %}selected{% endif %}>Newest</option>
+                    <option value="price_asc" {% if current_sort == "price_asc" %}selected{% endif %}>Price: low to high</option>
+                    <option value="price_desc" {% if current_sort == "price_desc" %}selected{% endif %}>Price: high to low</option>
+                    <option value="name" {% if current_sort == "name" %}selected{% endif %}>Name A–Z</option>
+                </select>
+            </form>
+        </div>
+    </section>
+
+    <section>
+        {% if products %}
+            <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {% for product in products %}
+                    <li class="group rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <a href="#" class="block p-5">
+                            <div class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 text-4xl font-light mb-4 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
+                                {{ product.name|slice:":1"|upper }}
+                            </div>
+                            <span class="text-xs font-medium uppercase tracking-wide text-sky-600 dark:text-sky-400">
+                                {{ product.get_category_display }}
+                            </span>
+                            <h2 class="mt-1 text-lg font-semibold text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                                {{ product.name }}
+                            </h2>
+                            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
+                                {{ product.description|default:"No description."|truncatewords:12 }}
+                            </p>
+                            <p class="mt-3 text-lg font-bold text-slate-900 dark:text-white">
+                                ${{ product.markup_price }}
+                            </p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500">
+                                by {{ product.store.name }}
+                            </p>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-12 text-center">
+                <p class="text-slate-600 dark:text-slate-400">
+                    No products match your filters. Try a different category or search.
+                </p>
+                <a href="{% url 'storefront:home' %}" class="mt-4 inline-block text-sm font-medium text-sky-600 dark:text-sky-400 hover:underline">
+                    Clear filters
+                </a>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
