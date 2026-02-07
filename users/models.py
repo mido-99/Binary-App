@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -35,3 +36,54 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class ShippingAddress(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="shipping_addresses",
+        db_index=True,
+    )
+    full_name = models.CharField(max_length=255)
+    address_line1 = models.CharField(max_length=255)
+    address_line2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    zip_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
+    phone = models.CharField(max_length=50, blank=True)
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "users_shipping_addresses"
+        indexes = [models.Index(fields=["user"], name="idx_shipping_user")]
+
+    def __str__(self):
+        return f"{self.full_name}, {self.city}"
+
+
+class Wishlist(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wishlist_items",
+        db_index=True,
+    )
+    product = models.ForeignKey(
+        "products.Product",
+        on_delete=models.CASCADE,
+        related_name="wishlist_entries",
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "users_wishlist"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="users_wishlist_user_product_unique"),
+        ]
+        indexes = [models.Index(fields=["user"], name="idx_wishlist_user")]
+
+    def __str__(self):
+        return f"Wishlist {self.user_id} product={self.product_id}"

@@ -1,49 +1,70 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useFilterStore } from "@/stores/filterStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useDebounce } from "@/hooks/useDebounce";
+import { ProductGrid } from "@/components/store/ProductGrid";
+import { FilterSidebar } from "@/components/store/FilterSidebar";
+import { FilterChips } from "@/components/store/FilterChips";
+import { LayoutGrid, List, Filter } from "lucide-react";
+import type { Product } from "@/types";
 
-type Product = {
-  id: number;
-  name: string;
-  description: string;
-  category: string;
-  category_display: string;
-  markup_price: string;
-  store_name: string;
-  discount_percent?: string;
-  sale_price?: string;
-};
-
-type ApiResponse = { products: Product[]; categories: [string, string][] };
+interface ProductsApiResponse {
+  products: Product[];
+  categories: [string, string][];
+  total_count: number;
+  page: number;
+  page_size: number;
+}
 
 export function StorePage() {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const {
+    search,
+    setSearch,
+    categories,
+    stores,
+    sellers,
+    priceRange,
+    sortBy,
+    onSale,
+    page,
+    pageSize,
+    setPage,
+  } = useFilterStore();
+  const { productLayoutMode, toggleProductLayoutMode } = useUIStore();
+  const debouncedSearch = useDebounce(search, 300);
 
   const params = new URLSearchParams();
-  if (search) params.set("q", search);
-  if (category) params.set("category", category);
-  params.set("sort", sort);
+  if (debouncedSearch) params.set("q", debouncedSearch);
+  if (categories.length) params.set("categories", categories.join(","));
+  if (stores.length) params.set("stores", stores.join(","));
+  if (sellers.length) params.set("sellers", sellers.join(","));
+  if (priceRange[0] > 0) params.set("min_price", String(priceRange[0]));
+  if (priceRange[1] < 10000) params.set("max_price", String(priceRange[1]));
+  if (onSale) params.set("on_sale", "true");
+  params.set("sort", sortBy);
+  params.set("page", String(page));
+  params.set("page_size", String(pageSize));
 
-  const { data, isLoading } = useQuery<ApiResponse>({
-    queryKey: ["products", search, category, sort],
+  const { data, isLoading } = useQuery<ProductsApiResponse>({
+    queryKey: ["products", debouncedSearch, categories, stores, sellers, priceRange, sortBy, onSale, page, pageSize],
     queryFn: async () => {
-      const { data } = await api.get(`/api/products/?${params.toString()}`);
-      return data;
+      const { data: res } = await api.get(`/api/products/?${params.toString()}`);
+      return res;
     },
   });
 
   const products = data?.products ?? [];
-  const categories = data?.categories ?? [];
+  const totalCount = data?.total_count ?? 0;
+  const totalPages = data ? Math.ceil(data.total_count / data.page_size) : 0;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       <motion.section
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -55,132 +76,129 @@ export function StorePage() {
         </p>
       </motion.section>
 
-      <motion.section
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.3 }}
-        className="flex flex-col sm:flex-row gap-4 flex-wrap items-stretch sm:items-end"
-      >
-        <form
-          className="flex flex-wrap gap-3 items-center flex-1 min-w-0"
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <Input
-            type="search"
-            placeholder="Search products…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-[200px] max-w-md"
-          />
-        </form>
-        <div className="flex flex-wrap gap-3 items-center">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-[140px]"
-          >
-            <option value="">All categories</option>
-            {categories.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-[160px]"
-          >
-            <option value="newest">Newest</option>
-            <option value="price_asc">Price: low → high</option>
-            <option value="price_desc">Price: high → low</option>
-            <option value="name">Name A–Z</option>
-          </select>
-        </div>
-      </motion.section>
-
-      <section>
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} className="overflow-hidden animate-pulse">
-                <div className="aspect-square bg-muted" />
-                <CardContent className="p-5 space-y-2">
-                  <div className="h-4 bg-muted rounded w-1/3" />
-                  <div className="h-6 bg-muted rounded w-2/3" />
-                  <div className="h-4 bg-muted rounded w-full" />
-                  <div className="h-6 bg-muted rounded w-1/4" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : products.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="rounded-2xl border border-dashed p-12 text-center"
-          >
-            <p className="text-muted-foreground">No products match your filters.</p>
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="lg:w-64 shrink-0">
+          <div className="lg:hidden flex items-center gap-2 mb-4">
             <Button
               variant="outline"
-              className="mt-4"
-              onClick={() => {
-                setSearch("");
-                setCategory("");
-              }}
+              size="sm"
+              onClick={() => setSidebarOpen((o) => !o)}
+              className="flex items-center gap-2"
             >
-              Clear filters
+              <Filter className="h-4 w-4" />
+              {sidebarOpen ? "Hide filters" : "Show filters"}
             </Button>
-          </motion.div>
-        ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8" role="list">
-            <AnimatePresence mode="popLayout">
-              {products.map((product, i) => (
-                <motion.li
-                  key={product.id}
-                  layout
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.25, delay: i * 0.03 }}
+          </div>
+          <div
+            className={`border rounded-lg p-4 lg:border-0 lg:p-0 lg:bg-transparent ${sidebarOpen ? "block" : "hidden lg:block"}`}
+          >
+            <FilterSidebar />
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 flex-wrap items-stretch sm:items-center">
+            <form
+              className="flex-1 min-w-0 max-w-md"
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <Input
+                type="search"
+                placeholder="Search products…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full"
+              />
+            </form>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleProductLayoutMode}
+                aria-label={productLayoutMode === "grid" ? "Switch to list view" : "Switch to grid view"}
+              >
+                {productLayoutMode === "grid" ? (
+                  <List className="h-4 w-4" />
+                ) : (
+                  <LayoutGrid className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <FilterChips />
+
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? "Loading…" : `${totalCount} product${totalCount === 1 ? "" : "s"}`}
+          </p>
+
+          {isLoading ? (
+            <div
+              className={
+                productLayoutMode === "list"
+                  ? "space-y-3"
+                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8"
+              }
+            >
+              {[...Array(8)].map((_, i) => (
+                <div
+                  key={i}
+                  className={
+                    productLayoutMode === "list"
+                      ? "h-28 rounded-lg bg-muted animate-pulse"
+                      : "rounded-lg overflow-hidden bg-muted animate-pulse"
+                  }
                 >
-                  <Link to={`/item/${product.id}`}>
-                    <motion.div whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
-                      <Card className="overflow-hidden h-full group cursor-pointer">
-                        <div className="aspect-square bg-muted/50 flex items-center justify-center text-muted-foreground text-5xl font-heading font-bold group-hover:bg-muted transition-colors">
-                          {product.name.charAt(0).toUpperCase()}
-                        </div>
-                        <CardContent className="p-5">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                            {product.category_display}
-                          </span>
-                          <h2 className="mt-2 font-heading text-xl font-bold group-hover:text-primary transition-colors">
-                            {product.name}
-                          </h2>
-                          <p className="mt-2 text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                            {product.description || "No description."}
-                          </p>
-                          <div className="mt-4 flex items-baseline justify-between gap-2 flex-wrap">
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-heading text-2xl font-bold">
-                                ${product.sale_price ?? product.markup_price}
-                              </span>
-                              {product.sale_price != null && (
-                                <span className="text-sm text-muted-foreground line-through">${product.markup_price}</span>
-                              )}
-                            </div>
-                            <span className="text-xs text-muted-foreground truncate">{product.store_name}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  </Link>
-                </motion.li>
+                  {productLayoutMode === "grid" && <div className="aspect-square bg-muted/80" />}
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 bg-muted rounded w-1/3" />
+                    <div className="h-6 bg-muted rounded w-2/3" />
+                    <div className="h-4 bg-muted rounded w-full" />
+                  </div>
+                </div>
               ))}
-            </AnimatePresence>
-          </ul>
-        )}
-      </section>
+            </div>
+          ) : products.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-2xl border border-dashed p-12 text-center"
+            >
+              <p className="text-muted-foreground">No products match your filters.</p>
+              <Button variant="outline" className="mt-4" onClick={() => useFilterStore.getState().resetFilters()}>
+                Clear filters
+              </Button>
+            </motion.div>
+          ) : (
+            <>
+              <ProductGrid products={products} layout={productLayoutMode} />
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Page {page} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -23,6 +23,15 @@ class Order(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    shipping_full_name = models.CharField(max_length=255, blank=True)
+    shipping_address_line1 = models.CharField(max_length=255, blank=True)
+    shipping_address_line2 = models.CharField(max_length=255, blank=True)
+    shipping_city = models.CharField(max_length=100, blank=True)
+    shipping_state = models.CharField(max_length=100, blank=True)
+    shipping_zip_code = models.CharField(max_length=20, blank=True)
+    shipping_country = models.CharField(max_length=100, blank=True)
+    shipping_phone = models.CharField(max_length=50, blank=True)
+    payment_method = models.CharField(max_length=50, blank=True)
 
     class Meta:
         db_table = "orders"

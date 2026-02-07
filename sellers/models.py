@@ -31,6 +31,7 @@ class Seller(models.Model):
 
 class Store(models.Model):
     name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     seller_ref = models.OneToOneField(
         Seller,
         on_delete=models.CASCADE,

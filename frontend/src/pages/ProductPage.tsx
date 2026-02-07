@@ -1,31 +1,33 @@
-import { useParams, Link } from "react-router-dom";
+import { useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/stores/cartStore";
+import { useUIStore } from "@/stores/uiStore";
+import { StoreCard } from "@/components/product/StoreCard";
+import { WishlistButton } from "@/components/store/WishlistButton";
+import { SellerCard } from "@/components/product/SellerCard";
+import { RelatedProducts } from "@/components/product/RelatedProducts";
+import { ShoppingCart, Share2, Minus, Plus } from "lucide-react";
+import { toast } from "sonner";
+import type { ProductDetail } from "@/types";
 
-type ProductDetail = {
-  id: number;
-  name: string;
-  description: string;
-  full_description: string;
-  category: string;
-  category_display: string;
-  base_price: string;
-  markup_price: string;
-  discount_percent?: string;
-  sale_price?: string;
-  store_name: string;
-  store: { id: number; name: string };
-  seller: { id: number; email: string } | null;
-};
+interface ProductDetailResponse extends ProductDetail {
+  related_products?: import("@/types").Product[];
+}
 
-export function ItemPage() {
+export function ProductPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const productId = id ? parseInt(id, 10) : NaN;
+  const [quantity, setQuantity] = useState(1);
+  const addItem = useCartStore((s) => s.addItem);
+  const toggleCartDrawer = useUIStore((s) => s.toggleCartDrawer);
 
-  const { data: product, isLoading, error } = useQuery<ProductDetail>({
+  const { data: product, isLoading, error } = useQuery<ProductDetailResponse>({
     queryKey: ["product", productId],
     queryFn: async () => {
       const { data } = await api.get(`/api/products/${productId}/`);
@@ -58,7 +60,6 @@ export function ItemPage() {
             <div className="h-8 bg-muted rounded w-1/3" />
             <div className="h-10 bg-muted rounded w-2/3" />
             <div className="h-4 bg-muted rounded w-full" />
-            <div className="h-4 bg-muted rounded w-full" />
             <div className="h-20 bg-muted rounded w-full" />
           </div>
         </div>
@@ -82,7 +83,44 @@ export function ItemPage() {
   }
 
   const displayPrice = product.sale_price ?? product.markup_price;
-  const hasDiscount = product.sale_price != null || (product.discount_percent != null && Number(product.discount_percent) > 0);
+  const hasDiscount =
+    product.sale_price != null ||
+    (product.discount_percent != null && Number(product.discount_percent) > 0);
+
+  const handleAddToCart = () => {
+    addItem(product.id, {
+      id: product.id,
+      name: product.name,
+      markup_price: product.markup_price,
+      sale_price: product.sale_price,
+      store_name: product.store_name,
+    }, quantity);
+    toast.success("Added to cart");
+    toggleCartDrawer();
+  };
+
+  const handleBuyNow = () => {
+    addItem(product.id, {
+      id: product.id,
+      name: product.name,
+      markup_price: product.markup_price,
+      sale_price: product.sale_price,
+      store_name: product.store_name,
+    }, quantity);
+    navigate("/checkout");
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    } else {
+      toast.info(url);
+    }
+  };
+
+  const relatedProducts = product.related_products ?? [];
 
   return (
     <motion.div
@@ -131,32 +169,58 @@ export function ItemPage() {
             )}
           </div>
 
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <p className="text-muted-foreground whitespace-pre-wrap">{product.full_description || product.description || "No description."}</p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center border rounded-md">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="w-12 text-center font-medium tabular-nums">{quantity}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10"
+                onClick={() => setQuantity((q) => q + 1)}
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          <Card>
-            <CardContent className="p-4 space-y-2">
-              <h2 className="font-heading text-sm font-semibold">Store & seller</h2>
-              <dl className="text-sm space-y-1">
-                <div>
-                  <dt className="text-muted-foreground">Store</dt>
-                  <dd className="font-medium">{product.store?.name ?? product.store_name}</dd>
-                </div>
-                {product.seller && (
-                  <div>
-                    <dt className="text-muted-foreground">Seller</dt>
-                    <dd className="font-medium">{product.seller.email}</dd>
-                  </div>
-                )}
-              </dl>
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-3">
-            <Button size="lg" className="flex-1">
+          <div className="flex flex-wrap gap-3">
+            <Button size="lg" className="flex-1 min-w-[140px]" onClick={handleAddToCart}>
+              <ShoppingCart className="h-4 w-4 mr-2" />
               Add to cart
             </Button>
+            <Button size="lg" variant="outline" className="flex-1 min-w-[140px]" onClick={handleBuyNow}>
+              Buy now
+            </Button>
+            <Button size="lg" variant="ghost" className="shrink-0 p-2" onClick={handleShare} aria-label="Share">
+              <Share2 className="h-4 w-4" />
+            </Button>
+            <WishlistButton productId={productId} size="lg" className="shrink-0 p-2" />
+          </div>
+
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <p className="text-muted-foreground whitespace-pre-wrap">
+              {product.full_description || product.description || "No description."}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <StoreCard storeId={product.store.id} storeName={product.store?.name ?? product.store_name} />
+            {product.seller && (
+              <SellerCard sellerId={product.seller.id} sellerEmail={product.seller.email} />
+            )}
+          </div>
+
+          <div className="flex gap-3">
             <Button asChild variant="outline" size="lg">
               <Link to="/">Continue shopping</Link>
             </Button>
@@ -187,6 +251,8 @@ export function ItemPage() {
           </dl>
         </CardContent>
       </Card>
+
+      <RelatedProducts products={relatedProducts} />
     </motion.div>
   );
 }
