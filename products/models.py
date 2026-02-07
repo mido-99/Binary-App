@@ -47,6 +47,11 @@ class Product(models.Model):
         blank=True,
         help_text="If set, shown as current price (discounted).",
     )
+    image = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Path under MEDIA_ROOT, e.g. products/Electronics.jpg",
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:

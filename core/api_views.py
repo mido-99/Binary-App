@@ -4,6 +4,7 @@ REST API for the React SPA. Session-based auth (cookie); no JWT for simplicity.
 import json
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum
@@ -19,7 +20,7 @@ from tree.models import PairingCounter, TreeNode
 from users.models import User, ShippingAddress, Wishlist
 
 
-def _product_list_item(p):
+def _product_list_item(p, request=None):
     """Shared payload for list and detail (list uses brief description)."""
     out = {
         "id": p.id,
@@ -36,6 +37,9 @@ def _product_list_item(p):
         out["discount_percent"] = str(p.discount_percent)
     if p.sale_price is not None:
         out["sale_price"] = str(p.sale_price)
+    if getattr(p, "image", None) and p.image:
+        base = "/" + settings.MEDIA_URL.rstrip("/") + "/"
+        out["image_url"] = base + p.image.lstrip("/")
     return out
 
 
@@ -173,7 +177,7 @@ def api_store_products(request, store_id):
     page = max(1, int(request.GET.get("page", 1)))
     offset = (page - 1) * page_size
     qs = qs[offset : offset + page_size]
-    products = [_product_list_item(p) for p in qs]
+    products = [_product_list_item(p, request) for p in qs]
     return JsonResponse({
         "products": products,
         "total_count": total_count,
@@ -289,7 +293,7 @@ def api_products(request):
     page = max(1, int(request.GET.get("page", 1)))
     offset = (page - 1) * page_size
     qs = qs[offset : offset + page_size]
-    products = [_product_list_item(p) for p in qs]
+    products = [_product_list_item(p, request) for p in qs]
     return JsonResponse({
         "products": products,
         "categories": list(Product.Category.choices),
@@ -751,7 +755,7 @@ def api_product_detail(request, pk):
         p = qs.get()
     except Product.DoesNotExist:
         return JsonResponse({"error": "Product not found."}, status=404)
-    payload = _product_list_item(p)
+    payload = _product_list_item(p, request)
     payload["full_description"] = p.full_description or p.description or ""
     seller = getattr(p.store, "seller_ref", None)
     payload["store"] = {
@@ -769,7 +773,7 @@ def api_product_detail(request, pk):
         .exclude(pk=p.pk)
         .select_related("store")[:6]
     )
-    payload["related_products"] = [_product_list_item(r) for r in related]
+    payload["related_products"] = [_product_list_item(r, request) for r in related]
     return JsonResponse(payload)
 
 
@@ -786,7 +790,7 @@ def api_product_related(request, pk):
         .select_related("store")[:6]
     )
     return JsonResponse({
-        "products": [_product_list_item(r) for r in related],
+        "products": [_product_list_item(r, request) for r in related],
     })
 
 
@@ -799,7 +803,7 @@ def api_wishlist_list(request):
         .select_related("product", "product__store")
         .order_by("-created_at")
     )
-    products = [_product_list_item(w.product) for w in items]
+    products = [_product_list_item(w.product, request) for w in items]
     return JsonResponse({"products": products})
 
 

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -10,6 +11,8 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { ProductGrid } from "@/components/store/ProductGrid";
 import { FilterSidebar } from "@/components/store/FilterSidebar";
 import { FilterChips } from "@/components/store/FilterChips";
+import { HeroBanner } from "@/components/store/HeroBanner";
+import { CategoryBanner } from "@/components/store/CategoryBanner";
 import { LayoutGrid, List, Filter } from "lucide-react";
 import type { Product } from "@/types";
 
@@ -21,12 +24,16 @@ interface ProductsApiResponse {
   page_size: number;
 }
 
+const VALID_CATEGORIES = ["electronics", "fashion", "home", "sports", "beauty", "other"];
+
 export function StorePage() {
+  const [searchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const {
     search,
     setSearch,
     categories,
+    setCategories,
     stores,
     sellers,
     priceRange,
@@ -38,6 +45,15 @@ export function StorePage() {
   } = useFilterStore();
   const { productLayoutMode, toggleProductLayoutMode } = useUIStore();
   const debouncedSearch = useDebounce(search, 300);
+
+  const categoryFromUrl = searchParams.get("category");
+  useEffect(() => {
+    if (categoryFromUrl && VALID_CATEGORIES.includes(categoryFromUrl)) {
+      setCategories([categoryFromUrl]);
+    } else if (categoryFromUrl === null || categoryFromUrl === "") {
+      setCategories([]);
+    }
+  }, [categoryFromUrl, setCategories]);
 
   const params = new URLSearchParams();
   if (debouncedSearch) params.set("q", debouncedSearch);
@@ -63,8 +79,20 @@ export function StorePage() {
   const totalCount = data?.total_count ?? 0;
   const totalPages = data ? Math.ceil(data.total_count / data.page_size) : 0;
 
+  const singleCategory = categories.length === 1 ? categories[0] : null;
+  const categoryDisplayLabel =
+    singleCategory && data?.categories?.find((c) => c[0] === singleCategory)
+      ? data.categories.find((c) => c[0] === singleCategory)![1]
+      : singleCategory ?? "";
+
   return (
     <div className="space-y-6">
+      <HeroBanner />
+
+      {singleCategory && (
+        <CategoryBanner category={singleCategory} categoryDisplay={categoryDisplayLabel} />
+      )}
+
       <motion.section
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

@@ -18,6 +18,7 @@ export interface Product {
   store_id?: number;
   discount_percent?: string;
   sale_price?: string;
+  image_url?: string | null;
   is_active?: boolean;
 }
 

@@ -138,8 +138,12 @@ export function ProductPage() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="aspect-square rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground text-8xl font-heading font-bold">
-          {product.name.charAt(0).toUpperCase()}
+        <div className="aspect-square rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground text-8xl font-heading font-bold overflow-hidden">
+          {product.image_url ? (
+            <img src={product.image_url} alt="" className="w-full h-full object-cover rounded-2xl" />
+          ) : (
+            product.name.charAt(0).toUpperCase()
+          )}
         </div>
 
         <div className="space-y-6">

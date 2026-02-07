@@ -47,8 +47,12 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
               <div className="absolute top-2 right-2 z-10" onClick={(e) => e.preventDefault()}>
                 <WishlistButton productId={product.id} size="icon" className="h-8 w-8" />
               </div>
-              <div className="w-28 shrink-0 bg-muted/50 flex items-center justify-center text-muted-foreground text-3xl font-heading font-bold group-hover:bg-muted transition-colors">
-                {product.name.charAt(0).toUpperCase()}
+              <div className="w-28 shrink-0 bg-muted/50 flex items-center justify-center text-muted-foreground text-3xl font-heading font-bold group-hover:bg-muted transition-colors overflow-hidden">
+                {product.image_url ? (
+                  <img src={product.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  product.name.charAt(0).toUpperCase()
+                )}
               </div>
               <CardContent className="p-4 flex flex-1 flex-col justify-center min-w-0">
                 <span className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -96,8 +100,12 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
             <div className="absolute top-2 right-2 z-10" onClick={(e) => e.preventDefault()}>
               <WishlistButton productId={product.id} size="icon" className="h-8 w-8" />
             </div>
-            <div className="aspect-square bg-muted/50 flex items-center justify-center text-muted-foreground text-5xl font-heading font-bold group-hover:bg-muted transition-colors">
-              {product.name.charAt(0).toUpperCase()}
+            <div className="aspect-square bg-muted/50 flex items-center justify-center text-muted-foreground text-5xl font-heading font-bold group-hover:bg-muted transition-colors overflow-hidden">
+              {product.image_url ? (
+                <img src={product.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                product.name.charAt(0).toUpperCase()
+              )}
             </div>
             <CardContent className="p-5">
               <span className="text-xs font-semibold uppercase tracking-wider text-primary">
