@@ -142,12 +142,6 @@ Bonus Types:
 
 ---
 
-# Frontend Architecture
-
-Shown in frontend rules.
-
----
-
 # Background Processing
 
 - Task queue: Celery
