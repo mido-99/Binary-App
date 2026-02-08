@@ -64,6 +64,11 @@ export function CheckoutPage() {
 
   const createOrder = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
+      const cartItems = useCartStore.getState().items;
+      await api.post("/api/cart/clear/");
+      for (const item of cartItems) {
+        await api.post("/api/cart/add/", { product_id: item.product_id, quantity: item.quantity });
+      }
       const { data } = await api.post("/api/orders/", payload);
       return data as { order_id: number; order_number: string; total: string };
     },
@@ -106,7 +111,7 @@ export function CheckoutPage() {
         className="rounded-2xl border border-dashed p-12 text-center"
       >
         <p className="text-muted-foreground">Your cart is empty.</p>
-        <Button className="mt-4" onClick={() => navigate("/")}>Continue shopping</Button>
+        <Button className="mt-4" onClick={() => navigate("/")}>Go to shop</Button>
       </motion.div>
     );
   }
@@ -122,7 +127,6 @@ export function CheckoutPage() {
         <p className="text-muted-foreground">Your order has been placed successfully.</p>
         <p className="font-medium">Order # {orderId}</p>
         <Button onClick={() => navigate("/orders")}>View orders</Button>
-        <Button variant="outline" onClick={() => navigate("/")}>Continue shopping</Button>
       </motion.div>
     );
   }

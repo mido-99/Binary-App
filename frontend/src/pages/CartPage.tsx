@@ -37,9 +37,6 @@ export function CartPage() {
             <div className="rounded-lg border bg-card p-4">
               <CartSummary />
               <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                <Button variant="outline" asChild className="flex-1">
-                  <Link to="/">Continue shopping</Link>
-                </Button>
                 <Button asChild className="flex-1">
                   <Link to="/checkout">Proceed to checkout</Link>
                 </Button>

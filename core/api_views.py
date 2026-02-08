@@ -43,6 +43,9 @@ def _product_list_item(p, request=None):
         media_path = (settings.MEDIA_URL.rstrip("/") + "/" + p.image.lstrip("/")).replace("//", "/")
         path_encoded = "/" + quote(media_path.lstrip("/"), safe="/")
         out["image_url"] = request.build_absolute_uri(path_encoded) if request else path_encoded
+    seller_ref = getattr(getattr(p, "store", None), "seller_ref", None)
+    if seller_ref and getattr(seller_ref, "owner_id", None):
+        out["seller_id"] = seller_ref.owner_id
     return out
 
 
@@ -313,19 +316,28 @@ def _get_cart(request):
     return request.session["cart"]
 
 
-def _cart_item_payload(product_id, quantity, product):
-    """Single cart item for API response."""
+def _cart_item_payload(product_id, quantity, product, request=None):
+    """Single cart item for API response (includes image_url, store_id, seller_id for preview and links)."""
     price = str(product.sale_price) if product.sale_price is not None else str(product.markup_price)
+    product_payload = {
+        "id": product.id,
+        "name": product.name,
+        "markup_price": str(product.markup_price),
+        "sale_price": str(product.sale_price) if product.sale_price is not None else None,
+        "store_name": product.store.name,
+        "store_id": product.store_id,
+    }
+    if getattr(product, "image", None) and product.image:
+        media_path = (settings.MEDIA_URL.rstrip("/") + "/" + product.image.lstrip("/")).replace("//", "/")
+        path_encoded = "/" + quote(media_path.lstrip("/"), safe="/")
+        product_payload["image_url"] = request.build_absolute_uri(path_encoded) if request else path_encoded
+    seller_ref = getattr(product.store, "seller_ref", None)
+    if seller_ref and getattr(seller_ref, "owner_id", None):
+        product_payload["seller_id"] = seller_ref.owner_id
     return {
         "id": f"cart-{product_id}",
         "product_id": product_id,
-        "product": {
-            "id": product.id,
-            "name": product.name,
-            "markup_price": str(product.markup_price),
-            "sale_price": str(product.sale_price) if product.sale_price is not None else None,
-            "store_name": product.store.name,
-        },
+        "product": product_payload,
         "quantity": quantity,
         "price": price,
     }
@@ -341,7 +353,7 @@ def api_cart_list(request):
     product_ids = [item["product_id"] for item in cart]
     products = {
         p.id: p
-        for p in Product.objects.filter(id__in=product_ids, is_active=True).select_related("store")
+        for p in Product.objects.filter(id__in=product_ids, is_active=True).select_related("store", "store__seller_ref")
     }
     items = []
     subtotal = Decimal("0")
@@ -351,7 +363,7 @@ def api_cart_list(request):
             continue
         p = products[pid]
         price = p.sale_price if p.sale_price is not None else p.markup_price
-        items.append(_cart_item_payload(pid, qty, p))
+        items.append(_cart_item_payload(pid, qty, p, request))
         subtotal += price * qty
     return JsonResponse({
         "items": items,
@@ -803,7 +815,7 @@ def api_wishlist_list(request):
     """List current user's wishlist with product details."""
     items = (
         Wishlist.objects.filter(user=request.user)
-        .select_related("product", "product__store")
+        .select_related("product", "product__store", "product__store__seller_ref")
         .order_by("-created_at")
     )
     products = [_product_list_item(w.product, request) for w in items]

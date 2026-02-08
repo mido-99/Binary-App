@@ -94,8 +94,12 @@ export function WishlistPage() {
               >
                 <Card className="overflow-hidden h-full group">
                   <Link to={`/item/${product.id}`}>
-                    <div className="aspect-square bg-muted/50 flex items-center justify-center text-4xl font-heading font-bold text-muted-foreground group-hover:bg-muted transition-colors">
-                      {product.name.charAt(0).toUpperCase()}
+                    <div className="aspect-square bg-muted/50 flex items-center justify-center text-4xl font-heading font-bold text-muted-foreground group-hover:bg-muted transition-colors overflow-hidden">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        product.name.charAt(0).toUpperCase()
+                      )}
                     </div>
                   </Link>
                   <CardContent className="p-4">
@@ -115,6 +119,9 @@ export function WishlistPage() {
                             markup_price: product.markup_price,
                             sale_price: product.sale_price,
                             store_name: product.store_name,
+                            image_url: product.image_url,
+                            store_id: product.store_id,
+                            seller_id: product.seller_id,
                           });
                           toast.success("Added to cart");
                         }}

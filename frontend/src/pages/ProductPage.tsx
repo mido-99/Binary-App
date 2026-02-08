@@ -7,9 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
 import { useUIStore } from "@/stores/uiStore";
-import { StoreCard } from "@/components/product/StoreCard";
 import { WishlistButton } from "@/components/store/WishlistButton";
-import { SellerCard } from "@/components/product/SellerCard";
 import { RelatedProducts } from "@/components/product/RelatedProducts";
 import { ShoppingCart, Share2, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -87,13 +85,17 @@ export function ProductPage() {
     product.sale_price != null ||
     (product.discount_percent != null && Number(product.discount_percent) > 0);
 
+  const storeName = product.store?.name ?? product.store_name;
   const handleAddToCart = () => {
     addItem(product.id, {
       id: product.id,
       name: product.name,
       markup_price: product.markup_price,
       sale_price: product.sale_price,
-      store_name: product.store_name,
+      store_name: storeName,
+      image_url: product.image_url,
+      store_id: product.store?.id,
+      seller_id: product.seller?.id,
     }, quantity);
     toast.success("Added to cart");
     toggleCartDrawer();
@@ -105,7 +107,10 @@ export function ProductPage() {
       name: product.name,
       markup_price: product.markup_price,
       sale_price: product.sale_price,
-      store_name: product.store_name,
+      store_name: storeName,
+      image_url: product.image_url,
+      store_id: product.store?.id,
+      seller_id: product.seller?.id,
     }, quantity);
     navigate("/checkout");
   };
@@ -152,8 +157,25 @@ export function ProductPage() {
               {product.category_display}
             </span>
             <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">{product.name}</h1>
-            {product.store_name && (
-              <p className="mt-1 text-sm text-muted-foreground">Sold by {product.store_name}</p>
+            {(product.store || product.store_name) && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Sold by{" "}
+                {product.seller ? (
+                  <Link to={`/seller/${product.seller.id}`} className="underline hover:text-foreground">
+                    {product.seller.email}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+                {" store: "}
+                {product.store ? (
+                  <Link to={`/store/${product.store.id}`} className="underline hover:text-foreground">
+                    {product.store.name}
+                  </Link>
+                ) : (
+                  product.store_name
+                )}
+              </p>
             )}
           </div>
 
@@ -217,18 +239,6 @@ export function ProductPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <StoreCard storeId={product.store.id} storeName={product.store?.name ?? product.store_name} />
-            {product.seller && (
-              <SellerCard sellerId={product.seller.id} sellerEmail={product.seller.email} />
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <Button asChild variant="outline" size="lg">
-              <Link to="/">Continue shopping</Link>
-            </Button>
-          </div>
         </div>
       </div>
 

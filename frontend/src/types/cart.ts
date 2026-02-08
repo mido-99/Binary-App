@@ -3,7 +3,11 @@ import type { Product } from "./product";
 export interface CartItem {
   id: string;
   product_id: number;
-  product: Pick<Product, "id" | "name" | "markup_price" | "sale_price" | "store_name">;
+  product: Pick<Product, "id" | "name" | "markup_price" | "sale_price" | "store_name"> & {
+    image_url?: string | null;
+    store_id?: number;
+    seller_id?: number;
+  };
   quantity: number;
   price: string;
 }

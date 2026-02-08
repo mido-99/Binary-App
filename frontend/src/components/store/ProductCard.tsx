@@ -27,6 +27,9 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
       markup_price: product.markup_price,
       sale_price: product.sale_price,
       store_name: product.store_name,
+      image_url: product.image_url,
+      store_id: product.store_id,
+      seller_id: product.seller_id,
     });
   };
 
@@ -55,9 +58,13 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
                 )}
               </div>
               <CardContent className="p-4 flex flex-1 flex-col justify-center min-w-0">
-                <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                <Link
+                  to={`/?category=${product.category}`}
+                  className="text-xs font-semibold uppercase tracking-wider text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {product.category_display}
-                </span>
+                </Link>
                 <h2 className="font-heading text-lg font-bold group-hover:text-primary transition-colors truncate">
                   {product.name}
                 </h2>
@@ -69,7 +76,31 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
                   {product.sale_price != null && (
                     <span className="text-sm text-muted-foreground line-through">${product.markup_price}</span>
                   )}
-                  <span className="text-xs text-muted-foreground truncate">{product.store_name}</span>
+                  <span className="text-xs text-muted-foreground truncate flex items-center gap-1 flex-wrap">
+                    {product.store_id != null ? (
+                      <Link
+                        to={`/store/${product.store_id}`}
+                        className="hover:text-foreground underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {product.store_name}
+                      </Link>
+                    ) : (
+                      product.store_name
+                    )}
+                    {product.seller_id != null && (
+                      <>
+                        {" · "}
+                        <Link
+                          to={`/seller/${product.seller_id}`}
+                          className="hover:text-foreground underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Seller
+                        </Link>
+                      </>
+                    )}
+                  </span>
                   <Button size="sm" variant="outline" className="shrink-0" onClick={handleAddToCart}>
                     <ShoppingCart className="h-3 w-3 mr-1" />
                     Add
@@ -108,9 +139,13 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
               )}
             </div>
             <CardContent className="p-5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+              <Link
+                to={`/?category=${product.category}`}
+                className="text-xs font-semibold uppercase tracking-wider text-primary hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {product.category_display}
-              </span>
+              </Link>
               <h2 className="mt-2 font-heading text-xl font-bold group-hover:text-primary transition-colors">
                 {product.name}
               </h2>
@@ -124,7 +159,31 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
                     <span className="text-sm text-muted-foreground line-through">${product.markup_price}</span>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground truncate">{product.store_name}</span>
+                <span className="text-xs text-muted-foreground truncate">
+                {product.store_id != null ? (
+                  <Link
+                    to={`/store/${product.store_id}`}
+                    className="hover:text-foreground underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {product.store_name}
+                  </Link>
+                ) : (
+                  product.store_name
+                )}
+                {product.seller_id != null && (
+                  <>
+                    {" · "}
+                    <Link
+                      to={`/seller/${product.seller_id}`}
+                      className="hover:text-foreground underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Seller
+                    </Link>
+                  </>
+                )}
+              </span>
               </div>
               <Button
                 size="sm"
