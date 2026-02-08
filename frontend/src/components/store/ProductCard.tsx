@@ -30,6 +30,7 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
       image_url: product.image_url,
       store_id: product.store_id,
       seller_id: product.seller_id,
+      seller_name: product.seller_name,
     });
   };
 
@@ -96,7 +97,7 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
                           className="hover:text-foreground underline"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          Seller
+                          {product.seller_name ?? "Seller"}
                         </Link>
                       </>
                     )}
@@ -179,7 +180,7 @@ function ProductCardInner({ product, index = 0, layout = "grid" }: ProductCardPr
                       className="hover:text-foreground underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      Seller
+                      {product.seller_name ?? "Seller"}
                     </Link>
                   </>
                 )}

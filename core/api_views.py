@@ -46,6 +46,8 @@ def _product_list_item(p, request=None):
     seller_ref = getattr(getattr(p, "store", None), "seller_ref", None)
     if seller_ref and getattr(seller_ref, "owner_id", None):
         out["seller_id"] = seller_ref.owner_id
+        if getattr(seller_ref, "owner", None) and getattr(seller_ref.owner, "email", None):
+            out["seller_name"] = seller_ref.owner.email
     return out
 
 
@@ -334,6 +336,8 @@ def _cart_item_payload(product_id, quantity, product, request=None):
     seller_ref = getattr(product.store, "seller_ref", None)
     if seller_ref and getattr(seller_ref, "owner_id", None):
         product_payload["seller_id"] = seller_ref.owner_id
+        if getattr(seller_ref, "owner", None) and getattr(seller_ref.owner, "email", None):
+            product_payload["seller_name"] = seller_ref.owner.email
     return {
         "id": f"cart-{product_id}",
         "product_id": product_id,
@@ -353,7 +357,7 @@ def api_cart_list(request):
     product_ids = [item["product_id"] for item in cart]
     products = {
         p.id: p
-        for p in Product.objects.filter(id__in=product_ids, is_active=True).select_related("store", "store__seller_ref")
+        for p in Product.objects.filter(id__in=product_ids, is_active=True).select_related("store", "store__seller_ref", "store__seller_ref__owner")
     }
     items = []
     subtotal = Decimal("0")
@@ -815,7 +819,7 @@ def api_wishlist_list(request):
     """List current user's wishlist with product details."""
     items = (
         Wishlist.objects.filter(user=request.user)
-        .select_related("product", "product__store", "product__store__seller_ref")
+        .select_related("product", "product__store", "product__store__seller_ref", "product__store__seller_ref__owner")
         .order_by("-created_at")
     )
     products = [_product_list_item(w.product, request) for w in items]

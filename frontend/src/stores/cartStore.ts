@@ -7,6 +7,7 @@ interface CartState {
   addItem: (productId: number, product: CartItem["product"], quantity?: number) => void;
   removeItem: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
+  mergeProductFromApi: (productId: number, patch: Partial<CartItem["product"]>) => void;
   clearCart: () => void;
   getTotal: () => string;
   getItemCount: () => number;
@@ -66,6 +67,16 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           items: state.items.map((i) =>
             i.product_id === productId ? { ...i, quantity } : i
+          ),
+        }));
+      },
+
+      mergeProductFromApi(productId, patch) {
+        set((state) => ({
+          items: state.items.map((i) =>
+            i.product_id === productId
+              ? { ...i, product: { ...i.product, ...patch } }
+              : i
           ),
         }));
       },

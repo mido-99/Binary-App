@@ -7,6 +7,7 @@ export interface CartItem {
     image_url?: string | null;
     store_id?: number;
     seller_id?: number;
+    seller_name?: string | null; // e.g. seller email for display
   };
   quantity: number;
   price: string;

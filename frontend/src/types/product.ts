@@ -17,6 +17,7 @@ export interface Product {
   store_name: string;
   store_id?: number;
   seller_id?: number;
+  seller_name?: string | null;
   discount_percent?: string;
   sale_price?: string;
   image_url?: string | null;

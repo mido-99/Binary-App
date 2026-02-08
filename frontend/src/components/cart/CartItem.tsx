@@ -46,7 +46,7 @@ export function CartItem({ item }: CartItemProps) {
                       className="underline hover:text-foreground"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      Seller
+                      {product.seller_name ?? "Seller"}
                     </Link>
                   </>
                 )}

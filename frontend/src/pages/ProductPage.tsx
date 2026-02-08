@@ -96,6 +96,7 @@ export function ProductPage() {
       image_url: product.image_url,
       store_id: product.store?.id,
       seller_id: product.seller?.id,
+      seller_name: product.seller?.email,
     }, quantity);
     toast.success("Added to cart");
     toggleCartDrawer();
@@ -111,6 +112,7 @@ export function ProductPage() {
       image_url: product.image_url,
       store_id: product.store?.id,
       seller_id: product.seller?.id,
+      seller_name: product.seller?.email,
     }, quantity);
     navigate("/checkout");
   };

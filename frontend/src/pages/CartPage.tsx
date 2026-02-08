@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useCartStore } from "@/stores/cartStore";
+import { useCartHydrate } from "@/hooks/useCartHydrate";
 import { Button } from "@/components/ui/button";
 import { CartItem } from "@/components/cart/CartItem";
 import { CartSummary } from "@/components/cart/CartSummary";
@@ -8,6 +9,7 @@ import { EmptyCart } from "@/components/cart/EmptyCart";
 
 export function CartPage() {
   const items = useCartStore((s) => s.items);
+  useCartHydrate(true);
 
   return (
     <motion.div

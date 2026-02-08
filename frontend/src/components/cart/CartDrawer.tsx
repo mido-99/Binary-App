@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUIStore } from "@/stores/uiStore";
 import { useCartStore } from "@/stores/cartStore";
+import { useCartHydrate } from "@/hooks/useCartHydrate";
 import { Button } from "@/components/ui/button";
 import { CartItem } from "./CartItem";
 import { CartSummary } from "./CartSummary";
@@ -11,6 +12,7 @@ import { X } from "lucide-react";
 export function CartDrawer() {
   const { cartDrawerOpen, setCartDrawerOpen } = useUIStore();
   const items = useCartStore((s) => s.items);
+  useCartHydrate(cartDrawerOpen);
 
   return (
     <AnimatePresence>

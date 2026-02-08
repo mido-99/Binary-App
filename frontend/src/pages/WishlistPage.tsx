@@ -122,6 +122,7 @@ export function WishlistPage() {
                             image_url: product.image_url,
                             store_id: product.store_id,
                             seller_id: product.seller_id,
+                            seller_name: product.seller_name,
                           });
                           toast.success("Added to cart");
                         }}
