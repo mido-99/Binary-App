@@ -3,6 +3,7 @@ REST API for the React SPA. Session-based auth (cookie); no JWT for simplicity.
 """
 import json
 from decimal import Decimal
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
@@ -38,8 +39,10 @@ def _product_list_item(p, request=None):
     if p.sale_price is not None:
         out["sale_price"] = str(p.sale_price)
     if getattr(p, "image", None) and p.image:
-        base = "/" + settings.MEDIA_URL.rstrip("/") + "/"
-        out["image_url"] = base + p.image.lstrip("/")
+        # Path under MEDIA_URL; quote so filenames with spaces work (e.g. "black headphone.jpg").
+        media_path = (settings.MEDIA_URL.rstrip("/") + "/" + p.image.lstrip("/")).replace("//", "/")
+        path_encoded = "/" + quote(media_path.lstrip("/"), safe="/")
+        out["image_url"] = request.build_absolute_uri(path_encoded) if request else path_encoded
     return out
 
 

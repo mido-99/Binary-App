@@ -87,7 +87,7 @@ export function StorePage() {
 
   return (
     <div className="space-y-6">
-      <HeroBanner />
+      {!singleCategory && <HeroBanner />}
 
       {singleCategory && (
         <CategoryBanner category={singleCategory} categoryDisplay={categoryDisplayLabel} />
