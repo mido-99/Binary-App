@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
+import { useUIStore } from "@/stores/uiStore";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import type { CartItem as CartItemType } from "@/types";
 
@@ -10,14 +11,22 @@ interface CartItemProps {
 
 export function CartItem({ item }: CartItemProps) {
   const { updateQuantity, removeItem } = useCartStore();
+  const setCartDrawerOpen = useUIStore((s) => s.setCartDrawerOpen);
   const { product_id, product, quantity, price } = item;
+
+  const closeDrawerAndNavigate = () => {
+    setCartDrawerOpen(false);
+  };
 
   return (
     <div className="flex gap-4 py-3 border-b border-border last:border-0">
       <Link
         to={`/item/${product_id}`}
         className="flex gap-4 flex-1 min-w-0 group"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          closeDrawerAndNavigate();
+        }}
       >
         <div className="h-16 w-16 shrink-0 rounded-md bg-muted flex items-center justify-center text-xl font-heading font-bold text-muted-foreground overflow-hidden">
           {product.image_url ? (
@@ -34,7 +43,10 @@ export function CartItem({ item }: CartItemProps) {
                 <Link
                   to={`/store/${product.store_id}`}
                   className="underline hover:text-foreground"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeDrawerAndNavigate();
+                  }}
                 >
                   {product.store_name}
                 </Link>
@@ -44,7 +56,10 @@ export function CartItem({ item }: CartItemProps) {
                     <Link
                       to={`/seller/${product.seller_id}`}
                       className="underline hover:text-foreground"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeDrawerAndNavigate();
+                      }}
                     >
                       {product.seller_name ?? "Seller"}
                     </Link>
