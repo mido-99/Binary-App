@@ -58,7 +58,7 @@ def _parse_json(request):
         return {}
 
 
-@require_http_methods(["POST"])
+@require_POST
 def api_login(request):
     data = _parse_json(request)
     email = (data.get("email") or "").strip().lower()
@@ -76,12 +76,12 @@ def api_login(request):
     return JsonResponse({"user": {"email": user.email, "id": user.pk}})
 
 
-@require_http_methods(["POST"])
+@require_POST
 def api_register(request):
     data = _parse_json(request)
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    password_confirm = data.get("password_confirm") or data.get("password_confirm") or ""
+    password_confirm = data.get("password_confirm") or ""
     if not email:
         return JsonResponse({"error": "Please enter your email."}, status=400)
     if User.objects.filter(email__iexact=email).exists():
@@ -103,7 +103,7 @@ def api_me(request):
     return JsonResponse({"user": {"email": request.user.email, "id": request.user.pk}})
 
 
-@require_http_methods(["POST"])
+@require_POST
 @login_required
 def api_logout(request):
     logout(request)
@@ -376,7 +376,7 @@ def api_cart_list(request):
     })
 
 
-@require_http_methods(["POST"])
+@require_POST
 @ensure_csrf_cookie
 def api_cart_add(request):
     """Add or merge item into cart. Body: product_id, quantity (optional, default 1)."""
@@ -403,7 +403,7 @@ def api_cart_add(request):
     return JsonResponse({"ok": True})
 
 
-@require_http_methods(["POST"])
+@require_POST
 @ensure_csrf_cookie
 def api_cart_update(request):
     """Set quantity for a product. Body: product_id, quantity."""
@@ -485,7 +485,7 @@ def api_user_update(request):
     return JsonResponse({"user": {"id": user.pk, "email": user.email}})
 
 
-@require_http_methods(["POST"])
+@require_POST
 @login_required
 @ensure_csrf_cookie
 def api_change_password(request):
@@ -514,7 +514,7 @@ def api_address_list(request):
     return JsonResponse({"addresses": [_address_payload(a) for a in addrs]})
 
 
-@require_http_methods(["POST"])
+@require_POST
 @login_required
 @ensure_csrf_cookie
 def api_address_create(request):
@@ -573,7 +573,7 @@ def api_address_delete(request, addr_id):
     return JsonResponse({"ok": True})
 
 
-@require_http_methods(["POST"])
+@require_POST
 @login_required
 @ensure_csrf_cookie
 def api_order_create(request):
@@ -826,7 +826,7 @@ def api_wishlist_list(request):
     return JsonResponse({"products": products})
 
 
-@require_http_methods(["POST"])
+@require_POST
 @login_required
 @ensure_csrf_cookie
 def api_wishlist_add(request, product_id):
