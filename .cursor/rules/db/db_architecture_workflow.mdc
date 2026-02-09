@@ -1,0 +1,67 @@
+---
+description: Database + ORM architecture (SQLite default, optional Postgres via DATABASE_URL)
+globs: **/*.py
+alwaysApply: false
+---
+
+## Database selection (how it’s configured)
+
+- Configuration lives in `core/settings.py`.
+- Default (local/dev): **SQLite** at `db_fresh.sqlite3` in the repo root.
+- Optional (production): if `DATABASE_URL` is set and starts with `postgres`, Django uses it (via `dj_database_url` if installed).
+
+## What’s stored where (high-level)
+
+This is a single-Django-project database used by:
+- store/catalog (products, sellers, stores)
+- users/auth (custom `users.User`, addresses, wishlist)
+- orders (order + order items)
+- referral tree + counters (tree node + pairing counter)
+- bonuses/payouts/tasks (bonus ledger and async processing)
+
+## ORM usage conventions
+
+- All DB access is via **Django ORM** (models + querysets), not raw SQL.
+- Patterns used heavily in API:
+  - `select_related(...)` for FK joins (avoid N+1)
+  - `prefetch_related(...)` for reverse relations
+  - `aggregate(Sum(...))` for totals
+  - Pagination by slicing querysets
+
+## Core models (by app)
+
+- `users/models.py`
+  - `User` (custom, `USERNAME_FIELD = "email"`)
+  - `ShippingAddress`
+  - `Wishlist`
+- `sellers/models.py`
+  - `Seller`, `Store`
+- `products/models.py`
+  - `Product` (FK → `Store`; includes `image` path under `MEDIA_ROOT`)
+- `orders/models.py`
+  - `Order`, `OrderItem`
+- `tree/models.py`
+  - `TreeNode` (binary placement, immutable conceptually)
+  - `PairingCounter`
+- `bonuses/models.py`, `payouts/models.py`, `tasks/models.py`
+  - bonus ledger/events, payout records, and async task state (if used)
+
+## Migrations & schema changes
+
+- Each app stores migrations under `<app>/migrations/`.
+- Any model change must come with a migration (`python manage.py makemigrations` + `migrate`).
+- Avoid editing existing migration files unless you are intentionally rewriting history (not typical).
+
+## Media vs DB
+
+- The DB stores product metadata; product images are served from disk:
+  - `MEDIA_ROOT = BASE_DIR / "media"`
+  - `MEDIA_URL = "media/"`
+  - In DEBUG, Django serves media via `core/urls.py`; in production, serve media via the web server/CDN.
+
+## Do/Don’t for DB work
+
+- **Do** treat `db_fresh.sqlite3` as the canonical SQLite file name for this repo.
+- **Do** use `DATABASE_URL` for production Postgres rather than renaming DB files.
+- **Don’t** commit extra SQLite DB duplicates (keep one canonical SQLite DB file).
+- **Don’t** bypass the ORM unless you have a measured performance need and clear correctness guarantees.

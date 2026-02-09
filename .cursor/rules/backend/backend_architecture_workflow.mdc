@@ -1,0 +1,77 @@
+---
+description: Django backend architecture + request flow for the JSON API (core/)
+globs: **/*.py
+alwaysApply: false
+---
+
+## What this backend is
+
+- A **Django project** with project package `core/`.
+- Django serves:
+  - `admin/` (Django admin)
+  - `api/` (JSON API used by the React SPA)
+- The storefront/dashboard UI is a **separate React SPA** (not Django templates).
+
+## Entry points (how Django runs)
+
+- **Local/dev entry**: `manage.py`
+  - sets `DJANGO_SETTINGS_MODULE=core.settings`
+  - runs commands like `runserver`, `migrate`, etc.
+- **WSGI entry**: `core/wsgi.py` → `application = get_wsgi_application()`
+- **ASGI entry**: `core/asgi.py` → `application = get_asgi_application()`
+- **Celery (optional)**: `core/celery.py` configures Celery and autodiscovers tasks.
+
+## URL routing workflow (critical)
+
+1. Django receives request (WSGI/ASGI).
+2. Root routing is `core/urls.py`:
+   - `path("admin/", admin.site.urls)`
+   - `path("api/", include("core.api_urls"))`
+   - In DEBUG only: serves `MEDIA_URL` from disk.
+3. API routing is `core/api_urls.py` mapping to functions in `core/api_views.py`.
+
+## API style conventions
+
+- Endpoints are **function-based views** returning `JsonResponse`.
+- Auth is **session cookie based**:
+  - login/register: `POST /api/auth/login/`, `POST /api/auth/register/`
+  - current user: `GET /api/auth/me/` (sets CSRF cookie as well)
+  - logout: `POST /api/auth/logout/`
+- Protected endpoints use `@login_required` (returns 302 by default for non-API; frontend also redirects on 401).
+- CSRF:
+  - Many endpoints use `@ensure_csrf_cookie` so SPA can read `csrftoken` and send `X-CSRFToken`.
+- HTTP method enforcement:
+  - Use `@require_GET`, `@require_POST`, or `@require_http_methods([...])` depending on allowed methods.
+
+## Data flow for common user actions (SPA → Django)
+
+- **Homepage / product list**:
+  - SPA calls `GET /api/products/` with filters/pagination.
+  - Backend: `api_products()` builds ORM queryset, filters, sorts, paginates, returns JSON list.
+- **Product page**:
+  - SPA calls `GET /api/products/<id>/`.
+  - Backend: `api_product_detail()` returns a single JSON payload + `related_products`.
+- **Cart**:
+  - Stored in `request.session["cart"]` as `{product_id, quantity}` list.
+  - API returns enriched cart items by fetching `Product` rows and returning product summary fields.
+- **Orders/checkout**:
+  - `POST /api/orders/` creates `Order` + `OrderItem` rows from the current cart and clears the session cart.
+
+## Serialization conventions
+
+- Product payloads are centralized in `_product_list_item()` in `core/api_views.py`.
+- Image URLs are derived from `Product.image` (path under `MEDIA_ROOT`) and returned as `image_url` (URL-encoded).
+
+## Key settings (core/settings.py)
+
+- CORS is configured for Vite dev origin (`http://localhost:5173`) with credentials allowed.
+- `AUTH_USER_MODEL = "users.User"` (custom user model).
+- DB:
+  - Uses `DATABASE_URL` if set to Postgres; otherwise SQLite file (see DB rule).
+
+## Do/Don’t when changing backend
+
+- **Do** add new API endpoints only in `core/api_urls.py` + `core/api_views.py` (this project centralizes API there).
+- **Do** keep API responses JSON-serializable; convert Decimals to strings.
+- **Don’t** introduce Django template routes for storefront unless you also change the frontend strategy.
+- **Don’t** switch auth to JWT unless you update frontend `frontend/src/lib/api.ts` + auth flow accordingly.

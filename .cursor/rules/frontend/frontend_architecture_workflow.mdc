@@ -1,0 +1,61 @@
+---
+description: Frontend architecture + how it talks to Django API (React/Vite SPA)
+globs: frontend/**/*.{ts,tsx,js,jsx,css,html}
+alwaysApply: false
+---
+
+## What this frontend is
+
+- **React SPA (Vite + TypeScript)** living under `frontend/`.
+- **Client-side routing** via React Router. Django does **not** render storefront pages.
+- The SPA talks to Django via **JSON endpoints** under `/api/...`.
+
+## Runtime workflow (user visits)
+
+- Browser loads the SPA (dev: Vite on `5173`; prod: built static assets served separately).
+- SPA route determines which page component renders:
+  - `/` → `frontend/src/pages/StorePage.tsx` (product listing / “home”)
+  - `/item/:id` → `frontend/src/pages/ProductPage.tsx` (product detail)
+  - `/store/:id`, `/seller/:id`, `/cart`, `/checkout`, `/dashboard`, etc. (see `frontend/src/App.tsx`)
+- Each page uses **TanStack Query** to fetch server-state from Django and injects it into UI components.
+
+## API client conventions (critical)
+
+- API client is `frontend/src/lib/api.ts` (Axios).
+- Auth is **session cookie based** (NOT JWT). Axios is configured with:
+  - `withCredentials: true` so cookies are sent
+  - CSRF integration: `xsrfCookieName: "csrftoken"`, `xsrfHeaderName: "X-CSRFToken"`
+- `baseURL` is `import.meta.env.VITE_API_URL ?? ""`
+  - In dev, set `VITE_API_URL=http://127.0.0.1:8000` (or `http://localhost:8000`)
+- 401 handling: interceptor redirects to `/login?next=...` for protected API calls.
+
+## Where data comes from (common pages → API)
+
+- **Home/product listing** (`StorePage`) calls:
+  - `GET /api/products/?q=&categories=&stores=&sellers=&min_price=&max_price=&on_sale=&sort=&page=&page_size=`
+  - Response includes `products`, `categories`, `total_count`, `page`, `page_size`
+- **Product detail** (`ProductPage`) calls:
+  - `GET /api/products/<id>/`
+  - Response is one product object + `related_products`
+- **Filters sidebar** pulls:
+  - `GET /api/stores/` and `GET /api/sellers/`
+- **Cart** is session-backed server-side; client hydrates via:
+  - `GET /api/cart/` and writes via `POST /api/cart/add|update|clear` and `DELETE /api/cart/remove/<id>/`
+
+## State management conventions
+
+- **Server state**: TanStack Query (lists/details; caching; pagination).
+- **Client/UI state**: Zustand stores in `frontend/src/stores/` (e.g. `uiStore`, `cartStore`, `filterStore`).
+- **Cross-cutting state**: Context providers in `frontend/src/context/`:
+  - `AuthContext` calls `/api/auth/me/` to identify the current user.
+
+## UX rule of thumb (navigation + drawers)
+
+- The side cart is controlled by `useUIStore().cartDrawerOpen`.
+- When a cart item link is clicked, the drawer should close while navigating (keep this behavior intact).
+
+## Do/Don’t when changing frontend
+
+- **Do** keep endpoints prefixed with `/api/` (paths must match Django `core/api_urls.py`).
+- **Do** preserve cookie/CSRF behavior; avoid switching to JWT unless backend changes.
+- **Don’t** add new API endpoints in frontend without adding them in Django `core/api_urls.py` + `core/api_views.py`.
