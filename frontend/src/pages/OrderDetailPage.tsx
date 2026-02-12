@@ -58,6 +58,20 @@ export function OrderDetailPage() {
     },
   });
 
+  const markPaidOrder = useMutation({
+    mutationFn: async () => {
+      await api.post(`/api/orders/${orderId}/mark-paid/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success("Order marked paid. Bonus processing queued.");
+    },
+    onError: (err: { response?: { data?: { error?: string } } }) => {
+      toast.error(err.response?.data?.error || "Failed to mark order paid");
+    },
+  });
+
   if (!Number.isInteger(orderId)) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-dashed p-12 text-center">
@@ -78,6 +92,7 @@ export function OrderDetailPage() {
   }
 
   const canCancel = order.status === "pending";
+  const canMarkPaid = order.status === "pending";
 
   return (
     <motion.div
@@ -103,15 +118,26 @@ export function OrderDetailPage() {
             </span>
           </p>
         </div>
-        {canCancel && (
-          <Button
-            variant="destructive"
-            onClick={() => cancelOrder.mutate()}
-            disabled={cancelOrder.isPending}
-          >
-            {cancelOrder.isPending ? "Cancelling…" : "Cancel order"}
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canMarkPaid && (
+            <Button
+              variant="default"
+              onClick={() => markPaidOrder.mutate()}
+              disabled={markPaidOrder.isPending}
+            >
+              {markPaidOrder.isPending ? "Marking paid…" : "Mark as paid"}
+            </Button>
+          )}
+          {canCancel && (
+            <Button
+              variant="destructive"
+              onClick={() => cancelOrder.mutate()}
+              disabled={cancelOrder.isPending}
+            >
+              {cancelOrder.isPending ? "Cancelling…" : "Cancel order"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>

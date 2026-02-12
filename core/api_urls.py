@@ -30,10 +30,12 @@ urlpatterns = [
     path("orders/", api_views.api_orders),
     path("orders/<int:order_id>/", api_views.api_order_detail),
     path("orders/<int:order_id>/cancel/", api_views.api_order_cancel),
+    path("orders/<int:order_id>/mark-paid/", api_views.api_order_mark_paid),
     path("wishlist/", api_views.api_wishlist_list),
     path("wishlist/<int:product_id>/add/", api_views.api_wishlist_add),
     path("wishlist/<int:product_id>/remove/", api_views.api_wishlist_remove),
     path("dashboard/", api_views.api_dashboard),
     path("dashboard/tree/", api_views.api_tree_data),
     path("dashboard/bonus-events/", api_views.api_bonus_events),
+    path("dashboard/recompute/", api_views.api_dashboard_recompute),
 ]

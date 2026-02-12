@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
   Node,
@@ -15,7 +15,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CircleDot } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CircleDot, RefreshCw, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type TreeNode = { id: number; label: string; lane: string; depth: number; is_current_user: boolean };
@@ -39,8 +40,11 @@ function UserNode({ data }: NodeProps) {
 
 const nodeTypes = { userNode: UserNode as React.ComponentType<NodeProps> };
 
+const PAGE_SIZE = 20;
+
 export function DashboardPage() {
-  const { data: dashboardData } = useQuery({
+  const queryClient = useQueryClient();
+  const { data: dashboardData, isError: dashboardError, refetch: refetchDashboard, dataUpdatedAt: dashboardUpdatedAt } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
       const { data } = await api.get("/api/dashboard/");
@@ -48,13 +52,21 @@ export function DashboardPage() {
     },
   });
 
-  const { data: treeData, isLoading: treeLoading } = useQuery<{ nodes: TreeNode[]; edges: TreeEdge[] }>({
+  const { data: treeData, isLoading: treeLoading, isError: treeError, refetch: refetchTree } = useQuery<{ nodes: TreeNode[]; edges: TreeEdge[] }>({
     queryKey: ["tree"],
     queryFn: async () => {
       const { data } = await api.get("/api/dashboard/tree/");
       return data;
     },
   });
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["tree"] });
+    queryClient.invalidateQueries({ queryKey: ["bonus-events"] });
+  };
+
+  const lastUpdated = dashboardUpdatedAt ? new Date(dashboardUpdatedAt).toLocaleTimeString() : null;
 
   const initialNodes: Node[] = useMemo(() => {
     if (!treeData?.nodes?.length) return [];
@@ -123,11 +135,36 @@ export function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div>
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">Referral overview</h1>
-          <p className="text-sm text-muted-foreground mt-1">L/R pairs drive all bonus releases.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">Referral overview</h1>
+            <p className="text-sm text-muted-foreground mt-1">L/R pairs drive all bonus releases.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {lastUpdated && (
+              <span className="text-xs text-muted-foreground">Last updated {lastUpdated}</span>
+            )}
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-1.5">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
+        {dashboardError && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="flex flex-row items-center gap-3 py-4">
+              <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Failed to load stats</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Check your connection and try again.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => refetchDashboard()}>
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -212,6 +249,14 @@ export function DashboardPage() {
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                     Loading tree…
                   </div>
+                ) : treeError ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm p-8">
+                    <AlertCircle className="h-10 w-10 text-destructive" />
+                    <p>Failed to load tree.</p>
+                    <Button variant="outline" size="sm" onClick={() => refetchTree()}>
+                      Retry
+                    </Button>
+                  </div>
                 ) : !treeData?.nodes?.length ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-8 text-center">
                     You are not yet in the tree. Tree placement happens when you are referred.
@@ -274,16 +319,55 @@ export function DashboardPage() {
   );
 }
 
+type BonusEventItem = {
+  id: number;
+  bonus_type: string;
+  amount: string;
+  status: string;
+  order_id: number;
+  depth: number | null;
+  created_at: string;
+};
+
 function BonusEventsList() {
-  const { data, isLoading } = useQuery<{ events: Array<{ id: number; bonus_type: string; amount: string; status: string; order_id: number; depth: number | null; created_at: string }> }>({
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["bonus-events"],
-    queryFn: async () => {
-      const { data } = await api.get("/api/dashboard/bonus-events/");
-      return data;
+    queryFn: async ({ pageParam }) => {
+      const { data: res } = await api.get<{ events: BonusEventItem[]; total_count: number; page: number; page_size: number }>(
+        "/api/dashboard/bonus-events/",
+        { params: { page: pageParam, page_size: PAGE_SIZE } }
+      );
+      return res;
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.events.length < lastPage.page_size) return undefined;
+      if (lastPage.page * lastPage.page_size >= lastPage.total_count) return undefined;
+      return lastPage.page + 1;
     },
   });
-  const events = data?.events ?? [];
+  const events = data?.pages.flatMap((p) => p.events) ?? [];
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isError)
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-destructive flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />
+          Failed to load bonus events.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
   if (!events.length)
     return (
       <p className="text-sm text-muted-foreground">
@@ -291,22 +375,35 @@ function BonusEventsList() {
       </p>
     );
   return (
-    <div className="space-y-2 max-h-80 overflow-y-auto">
-      {events.map((e) => (
-        <div
-          key={e.id}
-          className="rounded-lg border bg-card/80 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm"
-        >
-          <div>
-            <span className="font-semibold">{e.bonus_type}</span> · {e.amount}{" "}
-            <span className="text-xs uppercase text-muted-foreground">{e.status}</span>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              Order #{e.order_id} · depth {e.depth ?? "—"}
+    <div className="space-y-2">
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {events.map((e) => (
+          <div
+            key={e.id}
+            className="rounded-lg border bg-card/80 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm"
+          >
+            <div>
+              <span className="font-semibold">{e.bonus_type}</span> · {e.amount}{" "}
+              <span className="text-xs uppercase text-muted-foreground">{e.status}</span>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Order #{e.order_id} · depth {e.depth ?? "—"}
+              </div>
             </div>
+            <span className="text-xs text-muted-foreground shrink-0">{new Date(e.created_at).toLocaleString()}</span>
           </div>
-          <span className="text-xs text-muted-foreground shrink-0">{new Date(e.created_at).toLocaleString()}</span>
-        </div>
-      ))}
+        ))}
+      </div>
+      {hasNextPage && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+        >
+          {isFetchingNextPage ? "Loading…" : "Load more"}
+        </Button>
+      )}
     </div>
   );
 }

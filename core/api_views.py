@@ -17,6 +17,7 @@ from bonuses.models import BonusEvent
 from orders.models import Order, OrderItem
 from products.models import Product
 from sellers.models import Seller, Store
+from tasks.tasks import process_purchase, release_pairs_for_user
 from tree.models import PairingCounter, TreeNode
 from users.models import User, ShippingAddress, Wishlist
 
@@ -763,6 +764,23 @@ def api_order_cancel(request, order_id):
     return JsonResponse({"ok": True, "status": order.status})
 
 
+@require_http_methods(["PATCH", "POST"])
+@login_required
+@ensure_csrf_cookie
+def api_order_mark_paid(request, order_id):
+    """Mark an order as paid and enqueue process_purchase for bonus calculation."""
+    try:
+        order = Order.objects.get(id=order_id, buyer=request.user)
+    except Order.DoesNotExist:
+        return JsonResponse({"error": "Order not found."}, status=404)
+    if order.status != Order.Status.PENDING:
+        return JsonResponse({"error": "Only pending orders can be marked paid."}, status=400)
+    order.status = Order.Status.PAID
+    order.save(update_fields=["status"])
+    process_purchase.delay(order.id)
+    return JsonResponse({"ok": True, "status": order.status})
+
+
 @require_GET
 def api_product_detail(request, pk):
     """Full product for item detail page: description, prices, discounts, store, seller."""
@@ -865,9 +883,9 @@ def api_dashboard(request):
     pending = bonus_qs.filter(status=BonusEvent.Status.PENDING).aggregate(s=Sum("amount"))["s"] or Decimal("0")
     return JsonResponse({
         "stats": {
-            "total_referrals": total_referrals,
-            "left_count": counter.left_count,
-            "right_count": counter.right_count,
+            "total_referrals": str(total_referrals),
+            "left_count": str(counter.left_count),
+            "right_count": str(counter.right_count),
             "direct_bonus": f"{direct:.2f}",
             "hierarchy_bonus": f"{hierarchy:.2f}",
             "released_bonus": f"{released:.2f}",
@@ -888,7 +906,7 @@ def api_tree_data(request):
     stack = [root]
     while stack:
         n = stack.pop()
-        for c in TreeNode.objects.filter(parent=n).select_related("user"):
+        for c in TreeNode.objects.filter(parent=n).select_related("user").order_by("lane", "id"):
             nodes_list.append(c)
             stack.append(c)
     nodes = [
@@ -902,11 +920,16 @@ def api_tree_data(request):
 @require_GET
 @login_required
 def api_bonus_events(request):
-    events = (
+    qs = (
         BonusEvent.objects.filter(user=request.user)
         .select_related("order")
-        .order_by("-created_at")[:20]
+        .order_by("-created_at", "-id")
     )
+    total_count = qs.count()
+    page_size = min(50, max(1, int(request.GET.get("page_size", 20))))
+    page = max(1, int(request.GET.get("page", 1)))
+    offset = (page - 1) * page_size
+    events = list(qs[offset : offset + page_size])
     list_ = [
         {
             "id": e.id,
@@ -919,4 +942,21 @@ def api_bonus_events(request):
         }
         for e in events
     ]
-    return JsonResponse({"events": list_})
+    return JsonResponse({
+        "events": list_,
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+    })
+
+
+@require_POST
+@login_required
+@ensure_csrf_cookie
+def api_dashboard_recompute(request):
+    """
+    Enqueue Celery task to release one pair for the current user (dev/demo).
+    Dashboard stats and bonus events will update after the worker runs.
+    """
+    release_pairs_for_user.delay(request.user.id)
+    return JsonResponse({"ok": True, "message": "Recompute queued for your account."})
