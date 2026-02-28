@@ -138,6 +138,28 @@ class Command(BaseCommand):
             ensure_pairing_counter(child_user)
             self.stdout.write(f"  Added {child_email} (depth={parent_node.depth + 1}, lane={lane}).")
 
+        # Levels 3–5: recursively add children under every node at depth 2 (then their descendants)
+        def add_children_under(parent: TreeNode, prefix: str, max_depth: int) -> None:
+            depth = parent.depth + 1
+            if depth > max_depth:
+                return
+            for lane, suffix in [("L", "l"), ("R", "r")]:
+                if TreeNode.objects.filter(parent=parent, lane=lane).exists():
+                    continue
+                child_email = f"tree-{prefix}{suffix}@example.com"
+                child_user = ensure_user(child_email, password)
+                ensure_tree_node(child_user, parent, lane, depth)
+                ensure_pairing_counter(child_user)
+                self.stdout.write(f"  Added {child_email} (depth={depth}, lane={lane}).")
+                child_node = child_user.tree_node
+                add_children_under(child_node, prefix + suffix, max_depth)
+
+        # All nodes at depth 2 (under root's L and R children)
+        depth_2_nodes = list(TreeNode.objects.filter(depth=2).select_related("user"))
+        for child_tn in depth_2_nodes:
+            prefix = child_tn.user.email.split("@")[0].replace("tree-", "") if child_tn.user else "xx"
+            add_children_under(child_tn, prefix, 5)
+
         # Update PairingCounter so "below" counts can be non-zero for demo (optional)
         try:
             root_counter = root_user.pairing_counter

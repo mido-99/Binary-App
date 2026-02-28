@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import {
@@ -11,6 +10,8 @@ import {
   useNodesState,
   useEdgesState,
   Panel,
+  MarkerType,
+  ViewportPortal,
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -38,20 +39,50 @@ type TreeEdge = { from: number; to: number };
 type UserNodeData = {
   label: string;
   isCurrent: boolean;
+  isRoot: boolean;
+  /** True = left subtree (blue), false = right subtree (red). Root is green. */
+  isLeftSubtree: boolean;
   lane: string;
   shortLabel: string;
+  depth: number;
 };
+
+/** Blue (L) and red (R) scales; darker as depth increases (0 = brightest). */
+const LANE_COLORS = {
+  L: [
+    "bg-blue-400 border-blue-300 text-white",
+    "bg-blue-500 border-blue-400 text-white",
+    "bg-blue-600 border-blue-500 text-white",
+    "bg-blue-700 border-blue-600 text-white",
+    "bg-blue-800 border-blue-700 text-white",
+    "bg-blue-900 border-blue-800 text-white",
+  ],
+  R: [
+    "bg-red-400 border-red-300 text-white",
+    "bg-red-500 border-red-400 text-white",
+    "bg-red-600 border-red-500 text-white",
+    "bg-red-700 border-red-600 text-white",
+    "bg-red-800 border-red-700 text-white",
+    "bg-red-900 border-red-800 text-white",
+  ],
+} as const;
 
 function UserNode({ data }: NodeProps) {
   const d = data as UserNodeData;
+  const isGreen = d.isRoot || d.isCurrent;
+  const lane = d.isLeftSubtree ? "L" : "R";
+  const scale = LANE_COLORS[lane];
+  const depthIndex = Math.min(d.depth, scale.length - 1);
+  const colorClass = isGreen
+    ? "bg-emerald-500 border-emerald-400 text-white dark:bg-emerald-600 dark:border-emerald-500"
+    : scale[depthIndex];
   return (
     <div
       className={cn(
         "flex items-center justify-center w-11 h-11 rounded-full border-2 font-semibold text-sm shadow-lg transition-all duration-200",
         "hover:scale-110 hover:shadow-xl cursor-pointer select-none",
-        d.isCurrent
-          ? "bg-emerald-500 border-emerald-400 text-white dark:bg-emerald-600 dark:border-emerald-500"
-          : "bg-amber-500/90 border-amber-400 text-white dark:bg-amber-600 dark:border-amber-500"
+        d.isCurrent ? "ring-2 ring-white ring-offset-2 ring-offset-[#1e1e2e]" : "",
+        colorClass
       )}
       title={d.label}
     >
@@ -60,7 +91,9 @@ function UserNode({ data }: NodeProps) {
   );
 }
 
-const nodeTypes = { userNode: UserNode as React.ComponentType<NodeProps> };
+const nodeTypes = {
+  userNode: UserNode as React.ComponentType<NodeProps>,
+};
 
 const PAGE_SIZE = 20;
 
@@ -97,48 +130,108 @@ export function DashboardPage() {
     return m;
   }, [treeData?.nodes]);
 
+  const SPACING = useMemo(() => ({ y: 88 }), []);
+  const NODE_SIZE = 44;
+  const LAYOUT = useMemo(
+    () => ({
+      nodeWidth: NODE_SIZE,
+      nodeHeight: NODE_SIZE,
+      centerGap: 100,
+      subtreeGap: 48,
+    }),
+    []
+  );
+
   const initialNodes: Node[] = useMemo(() => {
     if (!treeData?.nodes?.length) return [];
-    const edges = treeData.edges;
-    const nodes = treeData.nodes;
+    const rawEdges = treeData.edges as { from: number; to: number }[];
+    const rawNodes = treeData.nodes as TreeNode[];
+    const edges = rawEdges.map((e) => ({ from: Number(e.from), to: Number(e.to) }));
+    const nodes = rawNodes.map((n) => ({ ...n, id: Number(n.id) }));
     const root = nodes.find((n) => !edges.some((e) => e.to === n.id));
-    const pos: Record<number, { x: number; y: number }> = {};
-    if (root) {
-      pos[root.id] = { x: 0, y: 0 };
-      const queue: { node: TreeNode; x: number; y: number }[] = [{ node: root, x: 0, y: 0 }];
-      const spacing = { x: 200, y: 90 };
-      while (queue.length) {
-        const { node, x, y } = queue.shift()!;
-        const childEdges = edges.filter((e) => e.from === node.id);
-        childEdges.forEach((e) => {
-          const c = nodes.find((n) => n.id === e.to);
-          if (!c) return;
-          const isLeft = c.lane === "L";
-          const cx = x + (isLeft ? -spacing.x : spacing.x);
-          const cy = y + spacing.y;
-          pos[c.id] = { x: cx, y: cy };
-          queue.push({ node: c, x: cx, y: cy });
-        });
+    if (!root) return [];
+
+    const childrenByParent = new Map<number, { L?: TreeNode; R?: TreeNode }>();
+    nodes.forEach((n) => {
+      if (n.id === root.id) return;
+      const parentId = edges.find((e) => e.to === n.id)?.from;
+      if (parentId == null) return;
+      let entry = childrenByParent.get(parentId);
+      if (!entry) {
+        entry = {};
+        childrenByParent.set(parentId, entry);
       }
-    }
+      entry[n.lane as "L" | "R"] = n;
+    });
+
+    const subtreeWidth = (nodeId: number): number => {
+      const entry = childrenByParent.get(nodeId);
+      if (!entry || (!entry.L && !entry.R)) return LAYOUT.nodeWidth;
+      const wL = entry.L ? subtreeWidth(entry.L.id) : 0;
+      const wR = entry.R ? subtreeWidth(entry.R.id) : 0;
+      return LAYOUT.subtreeGap + wL + wR;
+    };
+
+    const pos: Record<number, { x: number; y: number }> = {};
+    const isLeftSubtreeMap: Record<number, boolean> = {};
+    let maxDepth = 0;
+
+    const assignPos = (nodeId: number, x: number, y: number, side: boolean | null) => {
+      pos[nodeId] = { x, y };
+      if (side !== null) isLeftSubtreeMap[nodeId] = side;
+      const entry = childrenByParent.get(nodeId);
+      if (!entry) return;
+      const hasL = !!entry.L;
+      const hasR = !!entry.R;
+      const gap = nodeId === root.id ? LAYOUT.centerGap : LAYOUT.subtreeGap;
+      const nextY = y + SPACING.y;
+      if (entry.L) {
+        const cx = x - gap / 2 - (hasL ? subtreeWidth(entry.L.id) : 0) / 2;
+        assignPos(entry.L.id, cx, nextY, nodeId === root.id ? true : side);
+        maxDepth = Math.max(maxDepth, entry.L.depth);
+      }
+      if (entry.R) {
+        const cx = x + gap / 2 + (hasR ? subtreeWidth(entry.R.id) : 0) / 2;
+        assignPos(entry.R.id, cx, nextY, nodeId === root.id ? false : side);
+        maxDepth = Math.max(maxDepth, entry.R.depth);
+      }
+    };
+
+    const rootCenterX = 0;
+    const rootCenterY = 0;
+    const rootX = rootCenterX - LAYOUT.nodeWidth / 2;
+    const rootY = rootCenterY - LAYOUT.nodeHeight / 2;
+    assignPos(root.id, rootX, rootY, null);
+    maxDepth = Math.max(maxDepth, root.depth);
+
     const shortLabel = (n: TreeNode) => {
       if (n.label.length <= 2) return n.label;
       const parts = n.label.replace(/@.*/, "").trim().split(/\s+/);
       if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
       return n.label.slice(0, 2).toUpperCase();
     };
-    return treeData.nodes.map((n) => ({
-      id: String(n.id),
-      type: "userNode",
-      position: pos[n.id] ?? { x: 0, y: 0 },
-      data: {
-        label: n.label,
-        isCurrent: n.is_current_user,
-        lane: n.lane,
-        shortLabel: shortLabel(n),
-      } as UserNodeData,
-    }));
-  }, [treeData]);
+
+    return nodes.map((n, index) => {
+      const p = pos[n.id];
+      const fallbackX = (isLeftSubtreeMap[n.id] ?? n.lane === "L") ? -200 - index * 60 : 200 + index * 60;
+      const fallbackY = n.depth * SPACING.y;
+      return {
+        id: String(n.id),
+        type: "userNode",
+        position: p ?? { x: fallbackX, y: fallbackY },
+        data: {
+          label: n.label,
+          isCurrent: n.is_current_user,
+          isRoot: n.id === root.id,
+          isLeftSubtree: n.id === root.id ? false : (isLeftSubtreeMap[n.id] ?? n.lane === "L"),
+          lane: n.lane,
+          shortLabel: shortLabel(n),
+          depth: n.depth,
+        } as UserNodeData,
+        zIndex: 1,
+      };
+    });
+  }, [treeData, SPACING, LAYOUT]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -150,18 +243,38 @@ export function DashboardPage() {
   );
 
   const initialEdges: Edge[] = useMemo(() => {
-    if (!treeData?.edges?.length) return [];
-    const nodes = treeData.nodes;
-    const laneByNodeId = new Map(nodes.map((n) => [n.id, n.lane]));
+    if (!treeData?.edges?.length || !treeData?.nodes?.length) return [];
+    const rawNodes = treeData.nodes as TreeNode[];
+    const rawEdges = treeData.edges as { from: number; to: number }[];
+    const nodes = rawNodes.map((n) => ({ ...n, id: Number(n.id) }));
+    const edges = rawEdges.map((e) => ({ from: Number(e.from), to: Number(e.to) }));
+    const root = nodes.find((n) => !edges.some((e) => e.to === n.id));
+    if (!root) return [];
+    const parentByNodeId = new Map<number, number>();
+    edges.forEach((e) => parentByNodeId.set(e.to, e.from));
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
+    const isLeftSubtree = (nodeId: number): boolean => {
+      if (nodeId === root.id) return false;
+      const parentId = parentByNodeId.get(nodeId);
+      if (parentId == null) return true;
+      const parent = nodeById.get(parentId);
+      if (!parent) return true;
+      if (parentId === root.id) return (nodeById.get(nodeId)?.lane ?? "L") === "L";
+      return isLeftSubtree(parentId);
+    };
     return treeData.edges.map((e) => {
-      const lane = laneByNodeId.get(e.to) ?? "L";
-      const isLeft = lane === "L";
+      const left = isLeftSubtree(e.to);
       return {
         id: `e${e.from}-${e.to}`,
         source: String(e.from),
         target: String(e.to),
         type: "smoothstep",
-        style: { stroke: isLeft ? "rgb(245 158 11)" : "rgb(16 185 129)", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed },
+        pathOptions: { borderRadius: 16 },
+        style: {
+          stroke: left ? "rgb(59 130 246)" : "rgb(239 68 68)",
+          strokeWidth: 2.5,
+        },
       };
     });
   }, [treeData]);
@@ -333,13 +446,19 @@ export function DashboardPage() {
                       fitViewOptions={{ padding: 0.25 }}
                       minZoom={0.15}
                       maxZoom={2.5}
-                      panOnDrag={[1, 2]}
+                      panOnDrag={true}
+                      selectionOnDrag={false}
                       panOnScroll={false}
                       zoomOnScroll={true}
                       zoomOnPinch={true}
                       nodesDraggable={false}
                       elementsSelectable={true}
-                      defaultEdgeOptions={{ type: "smoothstep", animated: false }}
+                      defaultEdgeOptions={{
+                        type: "smoothstep",
+                        animated: false,
+                        markerEnd: { type: MarkerType.ArrowClosed },
+                        pathOptions: { borderRadius: 16 },
+                      }}
                       proOptions={{ hideAttribution: true }}
                       className="bg-[#1e1e2e]"
                     >
@@ -350,12 +469,63 @@ export function DashboardPage() {
                         color="rgba(113, 113, 122, 0.4)"
                         className="bg-[#1e1e2e]"
                       />
+                      {/* Vertical L/R split line through root node center (flow x=0) */}
+                      {treeData.nodes.length > 0 && (() => {
+                        const maxDepth = Math.max(...treeData.nodes.map((n) => n.depth));
+                        const lineHeight = maxDepth * SPACING.y + 400;
+                        return (
+                          <ViewportPortal>
+                            <svg
+                              className="absolute pointer-events-none"
+                              width={20}
+                              height={lineHeight}
+                              style={{ left: -10, top: -LAYOUT.nodeHeight / 2 }}
+                              aria-hidden
+                            >
+                              <defs>
+                                <linearGradient id="lane-divider-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" stopColor="rgb(59 130 246)" stopOpacity={0.15} />
+                                  <stop offset="50%" stopColor="rgb(113 113 122)" stopOpacity={0.5} />
+                                  <stop offset="100%" stopColor="rgb(239 68 68)" stopOpacity={0.15} />
+                                </linearGradient>
+                                <filter id="lane-divider-glow" x="-50%" y="-50%" width="200%" height="200%">
+                                  <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+                                  <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                  </feMerge>
+                                </filter>
+                              </defs>
+                              <line
+                                x1={10}
+                                y1={0}
+                                x2={10}
+                                y2={lineHeight}
+                                stroke="url(#lane-divider-gradient)"
+                                strokeWidth={3}
+                                strokeLinecap="round"
+                                filter="url(#lane-divider-glow)"
+                              />
+                              <line
+                                x1={10}
+                                y1={0}
+                                x2={10}
+                                y2={lineHeight}
+                                stroke="rgba(113 113 122 / 0.6)"
+                                strokeWidth={1}
+                                strokeDasharray="8 6"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </ViewportPortal>
+                        );
+                      })()}
                       <Controls
                         className="!bg-zinc-800/90 !border-zinc-600 !rounded-lg [&>button]:!bg-zinc-700 [&>button]:!text-zinc-200 [&>button:hover]:!bg-zinc-600"
                         showInteractive={false}
                       />
                       <Panel position="top-left" className="text-xs text-zinc-500 bg-zinc-800/80 rounded px-2 py-1.5 border border-zinc-600/50">
-                        Pan: drag · Zoom: scroll
+                        Pan: left drag · Zoom: scroll
                       </Panel>
                     </ReactFlow>
                     <AnimatePresence>
@@ -381,13 +551,15 @@ export function DashboardPage() {
                           <div className="p-4 space-y-3 text-sm">
                             <div>
                               <span className="text-xs text-zinc-500 block mb-0.5">Name</span>
-                              <Link
-                                to={`/user/${selectedNode.user_id}`}
+                              <a
+                                href={`/user/${selectedNode.user_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="font-medium text-emerald-400 hover:text-emerald-300 hover:underline inline-flex items-center gap-1"
                               >
                                 <User className="h-3.5 w-3" />
                                 {selectedNode.label}
-                              </Link>
+                              </a>
                               {selectedNode.is_current_user && (
                                 <span className="ml-2 text-xs text-emerald-400">(you)</span>
                               )}
@@ -397,12 +569,14 @@ export function DashboardPage() {
                                 <span className="text-xs text-zinc-500 block mb-0.5">Invited by</span>
                                 <span className="text-zinc-300">
                                   {selectedNode.invited_by_user_id != null ? (
-                                    <Link
-                                      to={`/user/${selectedNode.invited_by_user_id}`}
+                                    <a
+                                      href={`/user/${selectedNode.invited_by_user_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                       className="text-amber-400 hover:text-amber-300 hover:underline"
                                     >
                                       {selectedNode.invited_by}
-                                    </Link>
+                                    </a>
                                   ) : (
                                     selectedNode.invited_by
                                   )}
@@ -420,11 +594,11 @@ export function DashboardPage() {
                             <div className="flex gap-4 pt-1">
                               <div>
                                 <span className="text-xs text-zinc-500 block">Left lane below</span>
-                                <span className="text-amber-400 font-semibold">{selectedNode.left_count ?? 0}</span>
+                                <span className="text-blue-400 font-semibold">{selectedNode.left_count ?? 0}</span>
                               </div>
                               <div>
                                 <span className="text-xs text-zinc-500 block">Right lane below</span>
-                                <span className="text-emerald-400 font-semibold">{selectedNode.right_count ?? 0}</span>
+                                <span className="text-red-400 font-semibold">{selectedNode.right_count ?? 0}</span>
                               </div>
                             </div>
                             <div>
