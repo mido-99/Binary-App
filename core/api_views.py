@@ -894,6 +894,14 @@ def api_dashboard(request):
     })
 
 
+def _count_subtree(node_id):
+    """Return number of nodes in the subtree rooted at node_id (inclusive)."""
+    count = 1
+    for c in TreeNode.objects.filter(parent_id=node_id).values_list("id", flat=True):
+        count += _count_subtree(c)
+    return count
+
+
 @require_GET
 @login_required
 def api_tree_data(request):
@@ -915,6 +923,27 @@ def api_tree_data(request):
         for pc in PairingCounter.objects.filter(user_id__in=user_ids)
     }
     parent_by_id = {n.id: n for n in nodes_list}
+    children_by_parent = {}
+    for n in nodes_list:
+        if n.parent_id is not None:
+            children_by_parent.setdefault(n.parent_id, {})[n.lane] = n
+
+    def side_of(node):
+        if node.id == root.id:
+            return node.lane
+        parent = parent_by_id.get(node.parent_id)
+        if parent is None or parent.id == root.id:
+            return node.lane
+        return side_of(parent)
+
+    def left_users_below(node):
+        c = children_by_parent.get(node.id, {}).get("L")
+        return _count_subtree(c.id) if c else 0
+
+    def right_users_below(node):
+        c = children_by_parent.get(node.id, {}).get("R")
+        return _count_subtree(c.id) if c else 0
+
     nodes = []
     for n in nodes_list:
         parent = parent_by_id.get(n.parent_id) if n.parent_id else None
@@ -925,6 +954,7 @@ def api_tree_data(request):
             "user_id": n.user_id,
             "label": n.user.email or f"User {n.user_id}",
             "lane": n.lane,
+            "side": side_of(n),
             "depth": n.depth,
             "is_current_user": n.user_id == user.id,
             "created_at": n.created_at.isoformat(),
@@ -932,6 +962,8 @@ def api_tree_data(request):
             "invited_by_user_id": parent.user_id if parent else None,
             "left_count": pc["left_count"],
             "right_count": pc["right_count"],
+            "left_users_below": left_users_below(n),
+            "right_users_below": right_users_below(n),
         })
     edges = [{"from": n.parent_id, "to": n.id} for n in nodes_list if n.parent_id is not None]
     return JsonResponse({"nodes": nodes, "edges": edges})

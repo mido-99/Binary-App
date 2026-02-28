@@ -10,8 +10,10 @@ import {
   useNodesState,
   useEdgesState,
   Panel,
+  Handle,
   MarkerType,
   ViewportPortal,
+  Position,
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -26,6 +28,8 @@ export type TreeNode = {
   user_id: number;
   label: string;
   lane: string;
+  /** Which side of the line: "L" = left, "R" = right (matches display). */
+  side?: string;
   depth: number;
   is_current_user: boolean;
   created_at?: string;
@@ -33,6 +37,10 @@ export type TreeNode = {
   invited_by_user_id?: number | null;
   left_count?: number;
   right_count?: number;
+  /** Number of users in this node's left branch (L child + descendants). */
+  left_users_below?: number;
+  /** Number of users in this node's right branch (R child + descendants). */
+  right_users_below?: number;
 };
 type TreeEdge = { from: number; to: number };
 
@@ -79,13 +87,15 @@ function UserNode({ data }: NodeProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center w-11 h-11 rounded-full border-2 font-semibold text-sm shadow-lg transition-all duration-200",
+        "relative flex items-center justify-center w-11 h-11 rounded-full border-2 font-semibold text-sm shadow-lg transition-all duration-200",
         "hover:scale-110 hover:shadow-xl cursor-pointer select-none",
         d.isCurrent ? "ring-2 ring-white ring-offset-2 ring-offset-[#1e1e2e]" : "",
         colorClass
       )}
       title={d.label}
     >
+      <Handle type="target" id="top" position={Position.Top} className="!w-2 !h-2 !border-2 !border-white !bg-transparent" />
+      <Handle type="source" id="bottom" position={Position.Bottom} className="!w-2 !h-2 !border-2 !border-white !bg-transparent" />
       {d.shortLabel}
     </div>
   );
@@ -147,7 +157,7 @@ export function DashboardPage() {
     const rawEdges = treeData.edges as { from: number; to: number }[];
     const rawNodes = treeData.nodes as TreeNode[];
     const edges = rawEdges.map((e) => ({ from: Number(e.from), to: Number(e.to) }));
-    const nodes = rawNodes.map((n) => ({ ...n, id: Number(n.id) }));
+    const nodes = rawNodes.map((n) => ({ ...n, id: Number(n.id), side: (n as TreeNode).side ?? n.lane }));
     const root = nodes.find((n) => !edges.some((e) => e.to === n.id));
     if (!root) return [];
 
@@ -173,27 +183,31 @@ export function DashboardPage() {
     };
 
     const pos: Record<number, { x: number; y: number }> = {};
-    const isLeftSubtreeMap: Record<number, boolean> = {};
-    let maxDepth = 0;
+    const gap = LAYOUT.centerGap / 2;
+    const sideOf = (nodeId: number): "L" | "R" | "root" => {
+      if (nodeId === root.id) return "root";
+      const parentId = edges.find((e) => e.to === nodeId)?.from;
+      if (parentId == null) return "L";
+      if (parentId === root.id) return (nodes.find((n) => n.id === nodeId)?.lane === "R" ? "R" : "L") as "L" | "R";
+      return sideOf(parentId);
+    };
 
-    const assignPos = (nodeId: number, x: number, y: number, side: boolean | null) => {
+    const assignPos = (nodeId: number, x: number, y: number) => {
       pos[nodeId] = { x, y };
-      if (side !== null) isLeftSubtreeMap[nodeId] = side;
       const entry = childrenByParent.get(nodeId);
       if (!entry) return;
       const hasL = !!entry.L;
       const hasR = !!entry.R;
-      const gap = nodeId === root.id ? LAYOUT.centerGap : LAYOUT.subtreeGap;
+      const wL = hasL ? subtreeWidth(entry.L!.id) : 0;
+      const wR = hasR ? subtreeWidth(entry.R!.id) : 0;
       const nextY = y + SPACING.y;
       if (entry.L) {
-        const cx = x - gap / 2 - (hasL ? subtreeWidth(entry.L.id) : 0) / 2;
-        assignPos(entry.L.id, cx, nextY, nodeId === root.id ? true : side);
-        maxDepth = Math.max(maxDepth, entry.L.depth);
+        const cx = x - gap - wL / 2;
+        assignPos(entry.L.id, cx, nextY);
       }
       if (entry.R) {
-        const cx = x + gap / 2 + (hasR ? subtreeWidth(entry.R.id) : 0) / 2;
-        assignPos(entry.R.id, cx, nextY, nodeId === root.id ? false : side);
-        maxDepth = Math.max(maxDepth, entry.R.depth);
+        const cx = x + gap + wR / 2;
+        assignPos(entry.R.id, cx, nextY);
       }
     };
 
@@ -201,8 +215,24 @@ export function DashboardPage() {
     const rootCenterY = 0;
     const rootX = rootCenterX - LAYOUT.nodeWidth / 2;
     const rootY = rootCenterY - LAYOUT.nodeHeight / 2;
-    assignPos(root.id, rootX, rootY, null);
-    maxDepth = Math.max(maxDepth, root.depth);
+    assignPos(root.id, rootX, rootY);
+
+    const rightEdgeLeftSubtree = Math.max(
+      ...nodes.filter((n) => sideOf(n.id) === "L").map((n) => pos[n.id].x + LAYOUT.nodeWidth),
+      -Infinity
+    );
+    const leftEdgeRightSubtree = Math.min(
+      ...nodes.filter((n) => sideOf(n.id) === "R").map((n) => pos[n.id].x),
+      Infinity
+    );
+    if (rightEdgeLeftSubtree > -gap && rightEdgeLeftSubtree !== -Infinity) {
+      const shift = rightEdgeLeftSubtree - (-gap);
+      nodes.filter((n) => sideOf(n.id) === "L").forEach((n) => { pos[n.id].x -= shift; });
+    }
+    if (leftEdgeRightSubtree < gap && leftEdgeRightSubtree !== Infinity) {
+      const shift = gap - leftEdgeRightSubtree;
+      nodes.filter((n) => sideOf(n.id) === "R").forEach((n) => { pos[n.id].x += shift; });
+    }
 
     const shortLabel = (n: TreeNode) => {
       if (n.label.length <= 2) return n.label;
@@ -213,7 +243,8 @@ export function DashboardPage() {
 
     return nodes.map((n, index) => {
       const p = pos[n.id];
-      const fallbackX = (isLeftSubtreeMap[n.id] ?? n.lane === "L") ? -200 - index * 60 : 200 + index * 60;
+      const side = n.side ?? n.lane;
+      const fallbackX = side === "L" ? -gap - 200 - index * 50 : gap + index * 50;
       const fallbackY = n.depth * SPACING.y;
       return {
         id: String(n.id),
@@ -223,7 +254,7 @@ export function DashboardPage() {
           label: n.label,
           isCurrent: n.is_current_user,
           isRoot: n.id === root.id,
-          isLeftSubtree: n.id === root.id ? false : (isLeftSubtreeMap[n.id] ?? n.lane === "L"),
+          isLeftSubtree: side === "L",
           lane: n.lane,
           shortLabel: shortLabel(n),
           depth: n.depth,
@@ -244,39 +275,20 @@ export function DashboardPage() {
 
   const initialEdges: Edge[] = useMemo(() => {
     if (!treeData?.edges?.length || !treeData?.nodes?.length) return [];
-    const rawNodes = treeData.nodes as TreeNode[];
     const rawEdges = treeData.edges as { from: number; to: number }[];
-    const nodes = rawNodes.map((n) => ({ ...n, id: Number(n.id) }));
-    const edges = rawEdges.map((e) => ({ from: Number(e.from), to: Number(e.to) }));
-    const root = nodes.find((n) => !edges.some((e) => e.to === n.id));
-    if (!root) return [];
-    const parentByNodeId = new Map<number, number>();
-    edges.forEach((e) => parentByNodeId.set(e.to, e.from));
-    const nodeById = new Map(nodes.map((n) => [n.id, n]));
-    const isLeftSubtree = (nodeId: number): boolean => {
-      if (nodeId === root.id) return false;
-      const parentId = parentByNodeId.get(nodeId);
-      if (parentId == null) return true;
-      const parent = nodeById.get(parentId);
-      if (!parent) return true;
-      if (parentId === root.id) return (nodeById.get(nodeId)?.lane ?? "L") === "L";
-      return isLeftSubtree(parentId);
-    };
-    return treeData.edges.map((e) => {
-      const left = isLeftSubtree(e.to);
-      return {
-        id: `e${e.from}-${e.to}`,
-        source: String(e.from),
-        target: String(e.to),
-        type: "smoothstep",
-        markerEnd: { type: MarkerType.ArrowClosed },
-        pathOptions: { borderRadius: 16 },
-        style: {
-          stroke: left ? "rgb(59 130 246)" : "rgb(239 68 68)",
-          strokeWidth: 2.5,
-        },
-      };
-    });
+    return rawEdges.map((e) => ({
+      id: `e${e.from}-${e.to}`,
+      source: String(e.from),
+      target: String(e.to),
+      sourceHandle: "bottom",
+      targetHandle: "top",
+      type: "straight",
+      markerEnd: { type: MarkerType.ArrowClosed, color: "rgb(255 255 255)" },
+      style: {
+        stroke: "rgb(255 255 255)",
+        strokeWidth: 2.5,
+      },
+    }));
   }, [treeData]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -454,10 +466,10 @@ export function DashboardPage() {
                       nodesDraggable={false}
                       elementsSelectable={true}
                       defaultEdgeOptions={{
-                        type: "smoothstep",
+                        type: "straight",
                         animated: false,
-                        markerEnd: { type: MarkerType.ArrowClosed },
-                        pathOptions: { borderRadius: 16 },
+                        markerEnd: { type: MarkerType.ArrowClosed, color: "rgb(255 255 255)" },
+                        style: { stroke: "rgb(255 255 255)", strokeWidth: 2.5 },
                       }}
                       proOptions={{ hideAttribution: true }}
                       className="bg-[#1e1e2e]"
@@ -593,18 +605,18 @@ export function DashboardPage() {
                             )}
                             <div className="flex gap-4 pt-1">
                               <div>
-                                <span className="text-xs text-zinc-500 block">Left lane below</span>
-                                <span className="text-blue-400 font-semibold">{selectedNode.left_count ?? 0}</span>
+                                <span className="text-xs text-zinc-500 block">Left users below</span>
+                                <span className="text-blue-400 font-semibold">{selectedNode.left_users_below ?? 0}</span>
                               </div>
                               <div>
-                                <span className="text-xs text-zinc-500 block">Right lane below</span>
-                                <span className="text-red-400 font-semibold">{selectedNode.right_count ?? 0}</span>
+                                <span className="text-xs text-zinc-500 block">Right users below</span>
+                                <span className="text-red-400 font-semibold">{selectedNode.right_users_below ?? 0}</span>
                               </div>
                             </div>
                             <div>
-                              <span className="text-xs text-zinc-500 block mb-0.5">Lane · Depth</span>
+                              <span className="text-xs text-zinc-500 block mb-0.5">Side · Depth</span>
                               <span className="text-zinc-300">
-                                {selectedNode.lane} · {selectedNode.depth}
+                                {(selectedNode.side ?? selectedNode.lane)} · {selectedNode.depth}
                               </span>
                             </div>
                           </div>
