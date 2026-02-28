@@ -1,6 +1,4 @@
-"""
-REST API for the React SPA. Session-based auth (cookie); no JWT for simplicity.
-"""
+"""REST API for the React SPA. Session-based auth (cookie)."""
 import json
 from decimal import Decimal
 from urllib.parse import quote
@@ -23,7 +21,6 @@ from users.models import User, ShippingAddress, Wishlist
 
 
 def _product_list_item(p, request=None):
-    """Shared payload for list and detail (list uses brief description)."""
     out = {
         "id": p.id,
         "name": p.name,

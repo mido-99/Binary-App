@@ -28,7 +28,6 @@ export type TreeNode = {
   user_id: number;
   label: string;
   lane: string;
-  /** Which side of the line: "L" = left, "R" = right (matches display). */
   side?: string;
   depth: number;
   is_current_user: boolean;
@@ -37,9 +36,7 @@ export type TreeNode = {
   invited_by_user_id?: number | null;
   left_count?: number;
   right_count?: number;
-  /** Number of users in this node's left branch (L child + descendants). */
   left_users_below?: number;
-  /** Number of users in this node's right branch (R child + descendants). */
   right_users_below?: number;
 };
 type TreeEdge = { from: number; to: number };
@@ -48,14 +45,12 @@ type UserNodeData = {
   label: string;
   isCurrent: boolean;
   isRoot: boolean;
-  /** True = left subtree (blue), false = right subtree (red). Root is green. */
   isLeftSubtree: boolean;
   lane: string;
   shortLabel: string;
   depth: number;
 };
 
-/** Blue (L) and red (R) scales; darker as depth increases (0 = brightest). */
 const LANE_COLORS = {
   L: [
     "bg-blue-400 border-blue-300 text-white",
@@ -147,13 +142,11 @@ export function DashboardPage() {
       nodeWidth: NODE_SIZE,
       nodeHeight: NODE_SIZE,
       centerGap: 80,
-      /** Slot width for the fixed binary grid (each node reserves 2 slots below: L and R). */
       slotWidth: 64,
     }),
     []
   );
 
-  /** Which level-line indices to show (hover). Empty = hide all. */
   const [hoveredLevelLines, setHoveredLevelLines] = useState<number[]>([]);
 
   const initialNodes: Node[] = useMemo(() => {
@@ -209,9 +202,7 @@ export function DashboardPage() {
       if (entry?.R) placeNode(entry.R.id, depth + 1, mid, slotEnd, side);
     };
 
-    const rootX = -LAYOUT.nodeWidth / 2;
-    const rootY = -LAYOUT.nodeHeight / 2;
-    pos[root.id] = { x: rootX, y: rootY };
+    pos[root.id] = { x: -LAYOUT.nodeWidth / 2, y: -LAYOUT.nodeHeight / 2 };
 
     const leftChild = childrenByParent.get(root.id)?.L;
     const rightChild = childrenByParent.get(root.id)?.R;
@@ -268,9 +259,7 @@ export function DashboardPage() {
     const d = (node.data as UserNodeData).depth;
     setHoveredLevelLines([d, d + 1]);
   }, []);
-  const onNodeMouseLeave = useCallback(() => {
-    setHoveredLevelLines((prev) => (prev.length ? [] : prev));
-  }, []);
+  const onNodeMouseLeave = useCallback(() => setHoveredLevelLines([]), []);
 
   const initialEdges: Edge[] = useMemo(() => {
     if (!treeData?.edges?.length || !treeData?.nodes?.length) return [];
@@ -482,7 +471,6 @@ export function DashboardPage() {
                         color="rgba(113, 113, 122, 0.4)"
                         className="bg-[#1e1e2e]"
                       />
-                      {/* Vertical L/R split line + horizontal depth level lines (hover to show) */}
                       {treeData.nodes.length > 0 && (() => {
                         const maxDepth = Math.max(...treeData.nodes.map((n) => n.depth));
                         const lineHeight = maxDepth * ROW_HEIGHT + 400;
@@ -490,7 +478,6 @@ export function DashboardPage() {
                         const levelLineIndices = Array.from({ length: maxDepth + 1 }, (_, i) => i);
                         return (
                           <ViewportPortal>
-                            {/* Vertical divider through root */}
                             <svg
                               className="absolute pointer-events-none"
                               width={20}
@@ -533,7 +520,6 @@ export function DashboardPage() {
                                 strokeLinecap="round"
                               />
                             </svg>
-                            {/* Horizontal depth separators: always visible (subtle); stronger on hover */}
                             <svg
                               className="absolute pointer-events-none"
                               width={levelLineStripHalf * 2}
@@ -567,7 +553,6 @@ export function DashboardPage() {
                                 );
                               })}
                             </svg>
-                            {/* Hit areas for level lines: hover line → show it and neighbors */}
                             <svg
                               className="absolute pointer-events-auto"
                               width={levelLineStripHalf * 2}
