@@ -13,7 +13,24 @@ Legacy Django templates + HTMX remain under `/login`, `/signup`, `/dashboard/` (
    
    uv run python manage.py runserver
    ```
-2. **Open in browser**
+
+2. **Start React server**
+
+   - Install dependencies if you haven't yet:
+
+   ```powershell
+   cd frontend
+   npm install
+   ```
+
+   - start server on http://localhost:5173/:
+
+   ```powershell
+   npm run dev
+   ```
+
+3. **Open in browser**
+
    - **Store (homepage):** [http://127.0.0.1:8000/](http://127.0.0.1:8000/) — product grid, categories, filters, sort
    - **Log in / Sign up:** [http://127.0.0.1:8000/login/](http://127.0.0.1:8000/login/) and [http://127.0.0.1:8000/signup/](http://127.0.0.1:8000/signup/) — site auth (separate from Django admin)
    - **Your dashboard:** [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/) — referral overview (login required)
