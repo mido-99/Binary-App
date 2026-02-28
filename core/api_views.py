@@ -909,10 +909,30 @@ def api_tree_data(request):
         for c in TreeNode.objects.filter(parent=n).select_related("user").order_by("lane", "id"):
             nodes_list.append(c)
             stack.append(c)
-    nodes = [
-        {"id": n.id, "label": n.user.email or f"User {n.user_id}", "lane": n.lane, "depth": n.depth, "is_current_user": n.user_id == user.id}
-        for n in nodes_list
-    ]
+    user_ids = [n.user_id for n in nodes_list]
+    counters = {
+        pc.user_id: {"left_count": pc.left_count, "right_count": pc.right_count}
+        for pc in PairingCounter.objects.filter(user_id__in=user_ids)
+    }
+    parent_by_id = {n.id: n for n in nodes_list}
+    nodes = []
+    for n in nodes_list:
+        parent = parent_by_id.get(n.parent_id) if n.parent_id else None
+        invited_by = (parent.user.email or f"User {parent.user_id}") if parent else None
+        pc = counters.get(n.user_id) or {"left_count": 0, "right_count": 0}
+        nodes.append({
+            "id": n.id,
+            "user_id": n.user_id,
+            "label": n.user.email or f"User {n.user_id}",
+            "lane": n.lane,
+            "depth": n.depth,
+            "is_current_user": n.user_id == user.id,
+            "created_at": n.created_at.isoformat(),
+            "invited_by": invited_by,
+            "invited_by_user_id": parent.user_id if parent else None,
+            "left_count": pc["left_count"],
+            "right_count": pc["right_count"],
+        })
     edges = [{"from": n.parent_id, "to": n.id} for n in nodes_list if n.parent_id is not None]
     return JsonResponse({"nodes": nodes, "edges": edges})
 

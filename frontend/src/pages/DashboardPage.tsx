@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
@@ -16,24 +17,45 @@ import "@xyflow/react/dist/style.css";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CircleDot, RefreshCw, AlertCircle } from "lucide-react";
+import { CircleDot, RefreshCw, AlertCircle, X, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type TreeNode = { id: number; label: string; lane: string; depth: number; is_current_user: boolean };
+export type TreeNode = {
+  id: number;
+  user_id: number;
+  label: string;
+  lane: string;
+  depth: number;
+  is_current_user: boolean;
+  created_at?: string;
+  invited_by?: string | null;
+  invited_by_user_id?: number | null;
+  left_count?: number;
+  right_count?: number;
+};
 type TreeEdge = { from: number; to: number };
 
+type UserNodeData = {
+  label: string;
+  isCurrent: boolean;
+  lane: string;
+  shortLabel: string;
+};
+
 function UserNode({ data }: NodeProps) {
-  const d = data as { label: string; isCurrent?: boolean };
+  const d = data as UserNodeData;
   return (
     <div
       className={cn(
-        "px-4 py-2 rounded-lg border-2 min-w-[120px] text-center text-sm font-medium shadow-sm",
+        "flex items-center justify-center w-11 h-11 rounded-full border-2 font-semibold text-sm shadow-lg transition-all duration-200",
+        "hover:scale-110 hover:shadow-xl cursor-pointer select-none",
         d.isCurrent
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-card text-card-foreground border-border"
+          ? "bg-emerald-500 border-emerald-400 text-white dark:bg-emerald-600 dark:border-emerald-500"
+          : "bg-amber-500/90 border-amber-400 text-white dark:bg-amber-600 dark:border-amber-500"
       )}
+      title={d.label}
     >
-      {d.label}
+      {d.shortLabel}
     </div>
   );
 }
@@ -68,6 +90,13 @@ export function DashboardPage() {
 
   const lastUpdated = dashboardUpdatedAt ? new Date(dashboardUpdatedAt).toLocaleTimeString() : null;
 
+  const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+  const nodeMap = useMemo(() => {
+    const m = new Map<number, TreeNode>();
+    treeData?.nodes?.forEach((n) => m.set(n.id, n));
+    return m;
+  }, [treeData?.nodes]);
+
   const initialNodes: Node[] = useMemo(() => {
     if (!treeData?.nodes?.length) return [];
     const edges = treeData.edges;
@@ -92,22 +121,49 @@ export function DashboardPage() {
         });
       }
     }
+    const shortLabel = (n: TreeNode) => {
+      if (n.label.length <= 2) return n.label;
+      const parts = n.label.replace(/@.*/, "").trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return n.label.slice(0, 2).toUpperCase();
+    };
     return treeData.nodes.map((n) => ({
       id: String(n.id),
       type: "userNode",
       position: pos[n.id] ?? { x: 0, y: 0 },
-      data: { label: n.label, isCurrent: n.is_current_user },
+      data: {
+        label: n.label,
+        isCurrent: n.is_current_user,
+        lane: n.lane,
+        shortLabel: shortLabel(n),
+      } as UserNodeData,
     }));
   }, [treeData]);
 
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const id = parseInt(node.id, 10);
+      const tn = nodeMap.get(id) ?? null;
+      setSelectedNode(tn);
+    },
+    [nodeMap]
+  );
+
   const initialEdges: Edge[] = useMemo(() => {
     if (!treeData?.edges?.length) return [];
-    return treeData.edges.map((e) => ({
-      id: `e${e.from}-${e.to}`,
-      source: String(e.from),
-      target: String(e.to),
-      type: "smoothstep",
-    }));
+    const nodes = treeData.nodes;
+    const laneByNodeId = new Map(nodes.map((n) => [n.id, n.lane]));
+    return treeData.edges.map((e) => {
+      const lane = laneByNodeId.get(e.to) ?? "L";
+      const isLeft = lane === "L";
+      return {
+        id: `e${e.from}-${e.to}`,
+        source: String(e.from),
+        target: String(e.to),
+        type: "smoothstep",
+        style: { stroke: isLeft ? "rgb(245 158 11)" : "rgb(16 185 129)", strokeWidth: 2 },
+      };
+    });
   }, [treeData]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -233,54 +289,155 @@ export function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.3 }}
         >
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="font-heading text-lg">Binary tree</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Drag to pan · scroll to zoom · your subtree only.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Drag empty area to pan · scroll to zoom · click a node for details.
+                </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CircleDot className="h-4 w-4 text-primary" /> You
+                <CircleDot className="h-4 w-4 text-emerald-500" /> You
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="h-[420px] rounded-lg bg-muted/20 border">
+            <CardContent className="p-0">
+              <div className="relative h-[480px] rounded-b-lg overflow-hidden bg-[#1e1e2e]">
                 {treeLoading ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                  <div className="h-full flex items-center justify-center text-zinc-400 text-sm">
                     Loading tree…
                   </div>
                 ) : treeError ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm p-8">
-                    <AlertCircle className="h-10 w-10 text-destructive" />
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-400 text-sm p-8">
+                    <AlertCircle className="h-10 w-10 text-red-400" />
                     <p>Failed to load tree.</p>
                     <Button variant="outline" size="sm" onClick={() => refetchTree()}>
                       Retry
                     </Button>
                   </div>
                 ) : !treeData?.nodes?.length ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm p-8 text-center">
+                  <div className="h-full flex items-center justify-center text-zinc-400 text-sm p-8 text-center">
                     You are not yet in the tree. Tree placement happens when you are referred.
                   </div>
                 ) : (
-                  <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    nodeTypes={nodeTypes}
-                    fitView
-                    fitViewOptions={{ padding: 0.2 }}
-                    minZoom={0.2}
-                    maxZoom={2}
-                    defaultEdgeOptions={{ type: "smoothstep", animated: false }}
-                    proOptions={{ hideAttribution: true }}
-                  >
-                    <Background />
-                    <Controls />
-                    <Panel position="top-left" className="text-xs text-muted-foreground">
-                      Drag · Zoom · Pan
-                    </Panel>
-                  </ReactFlow>
+                  <>
+                    <ReactFlow
+                      nodes={nodes}
+                      edges={edges}
+                      onNodesChange={onNodesChange}
+                      onEdgesChange={onEdgesChange}
+                      onNodeClick={onNodeClick}
+                      onPaneClick={() => setSelectedNode(null)}
+                      nodeTypes={nodeTypes}
+                      fitView
+                      fitViewOptions={{ padding: 0.25 }}
+                      minZoom={0.15}
+                      maxZoom={2.5}
+                      panOnDrag={[1, 2]}
+                      panOnScroll={false}
+                      zoomOnScroll={true}
+                      zoomOnPinch={true}
+                      nodesDraggable={false}
+                      elementsSelectable={true}
+                      defaultEdgeOptions={{ type: "smoothstep", animated: false }}
+                      proOptions={{ hideAttribution: true }}
+                      className="bg-[#1e1e2e]"
+                    >
+                      <Background
+                        variant="dots"
+                        gap={20}
+                        size={1.2}
+                        color="rgba(113, 113, 122, 0.4)"
+                        className="bg-[#1e1e2e]"
+                      />
+                      <Controls
+                        className="!bg-zinc-800/90 !border-zinc-600 !rounded-lg [&>button]:!bg-zinc-700 [&>button]:!text-zinc-200 [&>button:hover]:!bg-zinc-600"
+                        showInteractive={false}
+                      />
+                      <Panel position="top-left" className="text-xs text-zinc-500 bg-zinc-800/80 rounded px-2 py-1.5 border border-zinc-600/50">
+                        Pan: drag · Zoom: scroll
+                      </Panel>
+                    </ReactFlow>
+                    <AnimatePresence>
+                      {selectedNode && (
+                        <motion.div
+                          initial={{ opacity: 0, x: 24 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 24 }}
+                          transition={{ type: "tween", duration: 0.2 }}
+                          className="absolute top-3 right-3 w-72 rounded-lg border border-zinc-600/60 bg-zinc-800/95 shadow-xl backdrop-blur-sm z-10 overflow-hidden"
+                        >
+                          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-600/50 bg-zinc-700/50">
+                            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Node</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedNode(null)}
+                              className="p-1 rounded hover:bg-zinc-600 text-zinc-400 hover:text-zinc-200"
+                              aria-label="Close"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="p-4 space-y-3 text-sm">
+                            <div>
+                              <span className="text-xs text-zinc-500 block mb-0.5">Name</span>
+                              <Link
+                                to={`/user/${selectedNode.user_id}`}
+                                className="font-medium text-emerald-400 hover:text-emerald-300 hover:underline inline-flex items-center gap-1"
+                              >
+                                <User className="h-3.5 w-3" />
+                                {selectedNode.label}
+                              </Link>
+                              {selectedNode.is_current_user && (
+                                <span className="ml-2 text-xs text-emerald-400">(you)</span>
+                              )}
+                            </div>
+                            {selectedNode.invited_by != null && (
+                              <div>
+                                <span className="text-xs text-zinc-500 block mb-0.5">Invited by</span>
+                                <span className="text-zinc-300">
+                                  {selectedNode.invited_by_user_id != null ? (
+                                    <Link
+                                      to={`/user/${selectedNode.invited_by_user_id}`}
+                                      className="text-amber-400 hover:text-amber-300 hover:underline"
+                                    >
+                                      {selectedNode.invited_by}
+                                    </Link>
+                                  ) : (
+                                    selectedNode.invited_by
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                            {selectedNode.created_at && (
+                              <div>
+                                <span className="text-xs text-zinc-500 block mb-0.5">Added at</span>
+                                <span className="text-zinc-300">
+                                  {new Date(selectedNode.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex gap-4 pt-1">
+                              <div>
+                                <span className="text-xs text-zinc-500 block">Left lane below</span>
+                                <span className="text-amber-400 font-semibold">{selectedNode.left_count ?? 0}</span>
+                              </div>
+                              <div>
+                                <span className="text-xs text-zinc-500 block">Right lane below</span>
+                                <span className="text-emerald-400 font-semibold">{selectedNode.right_count ?? 0}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-xs text-zinc-500 block mb-0.5">Lane · Depth</span>
+                              <span className="text-zinc-300">
+                                {selectedNode.lane} · {selectedNode.depth}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
                 )}
               </div>
             </CardContent>

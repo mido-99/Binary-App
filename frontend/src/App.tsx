@@ -18,6 +18,7 @@ const CartPage = lazy(() => import("@/pages/CartPage").then((m) => ({ default: m
 const CheckoutPage = lazy(() => import("@/pages/CheckoutPage").then((m) => ({ default: m.CheckoutPage })));
 const StoreProfilePage = lazy(() => import("@/pages/StoreProfilePage").then((m) => ({ default: m.StoreProfilePage })));
 const SellerProfilePage = lazy(() => import("@/pages/SellerProfilePage").then((m) => ({ default: m.SellerProfilePage })));
+const UserProfilePage = lazy(() => import("@/pages/UserProfilePage").then((m) => ({ default: m.UserProfilePage })));
 const StoresListPage = lazy(() => import("@/pages/StoresListPage").then((m) => ({ default: m.StoresListPage })));
 const SellersListPage = lazy(() => import("@/pages/SellersListPage").then((m) => ({ default: m.SellersListPage })));
 const OrdersPage = lazy(() => import("@/pages/OrdersPage").then((m) => ({ default: m.OrdersPage })));
@@ -69,6 +70,7 @@ function AppRoutes() {
               <Route path="store/:id" element={<StoreProfilePage />} />
               <Route path="sellers" element={<SellersListPage />} />
               <Route path="seller/:id" element={<SellerProfilePage />} />
+              <Route path="user/:id" element={<UserProfilePage />} />
               <Route
             path="dashboard"
                 element={
