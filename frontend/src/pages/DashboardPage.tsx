@@ -94,8 +94,8 @@ function UserNode({ data }: NodeProps) {
       )}
       title={d.label}
     >
-      <Handle type="target" id="top" position={Position.Top} className="!w-2 !h-2 !border-2 !border-white !bg-transparent" />
-      <Handle type="source" id="bottom" position={Position.Bottom} className="!w-2 !h-2 !border-2 !border-white !bg-transparent" />
+      <Handle type="target" id="top" position={Position.Top} className="!w-0 !h-0 !min-w-0 !min-h-0 !opacity-0 !border-0 !bg-transparent pointer-events-none" />
+      <Handle type="source" id="bottom" position={Position.Bottom} className="!w-0 !h-0 !min-w-0 !min-h-0 !opacity-0 !border-0 !bg-transparent pointer-events-none" />
       {d.shortLabel}
     </div>
   );
@@ -140,17 +140,21 @@ export function DashboardPage() {
     return m;
   }, [treeData?.nodes]);
 
-  const SPACING = useMemo(() => ({ y: 88 }), []);
+  const ROW_HEIGHT = 88;
   const NODE_SIZE = 44;
   const LAYOUT = useMemo(
     () => ({
       nodeWidth: NODE_SIZE,
       nodeHeight: NODE_SIZE,
-      centerGap: 100,
-      subtreeGap: 48,
+      centerGap: 80,
+      /** Slot width for the fixed binary grid (each node reserves 2 slots below: L and R). */
+      slotWidth: 64,
     }),
     []
   );
+
+  /** Which level-line indices to show (hover). Empty = hide all. */
+  const [hoveredLevelLines, setHoveredLevelLines] = useState<number[]>([]);
 
   const initialNodes: Node[] = useMemo(() => {
     if (!treeData?.nodes?.length) return [];
@@ -174,65 +178,45 @@ export function DashboardPage() {
       entry[n.lane as "L" | "R"] = n;
     });
 
-    const subtreeWidth = (nodeId: number): number => {
-      const entry = childrenByParent.get(nodeId);
-      if (!entry || (!entry.L && !entry.R)) return LAYOUT.nodeWidth;
-      const wL = entry.L ? subtreeWidth(entry.L.id) : 0;
-      const wR = entry.R ? subtreeWidth(entry.R.id) : 0;
-      return LAYOUT.subtreeGap + wL + wR;
-    };
-
-    const pos: Record<number, { x: number; y: number }> = {};
+    const maxDepth = Math.max(1, ...nodes.map((n) => n.depth));
+    const totalSlotsPerSide = Math.max(1, 2 ** (maxDepth - 1));
     const gap = LAYOUT.centerGap / 2;
-    const sideOf = (nodeId: number): "L" | "R" | "root" => {
-      if (nodeId === root.id) return "root";
-      const parentId = edges.find((e) => e.to === nodeId)?.from;
-      if (parentId == null) return "L";
-      if (parentId === root.id) return (nodes.find((n) => n.id === nodeId)?.lane === "R" ? "R" : "L") as "L" | "R";
-      return sideOf(parentId);
-    };
+    const slotWidth = LAYOUT.slotWidth;
+    const leftExtent = totalSlotsPerSide * slotWidth;
+    const pos: Record<number, { x: number; y: number }> = {};
 
-    const assignPos = (nodeId: number, x: number, y: number) => {
-      pos[nodeId] = { x, y };
+    const placeNode = (
+      nodeId: number,
+      depth: number,
+      slotStart: number,
+      slotEnd: number,
+      side: "L" | "R"
+    ) => {
+      const centerSlot = (slotStart + slotEnd) / 2;
+      const y = depth * ROW_HEIGHT;
+      let x: number;
+      if (side === "L") {
+        x = -gap - leftExtent + (centerSlot + 0.5) * slotWidth;
+      } else {
+        const localSlot = centerSlot - totalSlotsPerSide;
+        x = gap + (localSlot + 0.5) * slotWidth;
+      }
+      pos[nodeId] = { x: x - LAYOUT.nodeWidth / 2, y: y - LAYOUT.nodeHeight / 2 };
+
       const entry = childrenByParent.get(nodeId);
-      if (!entry) return;
-      const hasL = !!entry.L;
-      const hasR = !!entry.R;
-      const wL = hasL ? subtreeWidth(entry.L!.id) : 0;
-      const wR = hasR ? subtreeWidth(entry.R!.id) : 0;
-      const nextY = y + SPACING.y;
-      if (entry.L) {
-        const cx = x - gap - wL / 2;
-        assignPos(entry.L.id, cx, nextY);
-      }
-      if (entry.R) {
-        const cx = x + gap + wR / 2;
-        assignPos(entry.R.id, cx, nextY);
-      }
+      const mid = (slotStart + slotEnd) / 2;
+      if (entry?.L) placeNode(entry.L.id, depth + 1, slotStart, mid, side);
+      if (entry?.R) placeNode(entry.R.id, depth + 1, mid, slotEnd, side);
     };
 
-    const rootCenterX = 0;
-    const rootCenterY = 0;
-    const rootX = rootCenterX - LAYOUT.nodeWidth / 2;
-    const rootY = rootCenterY - LAYOUT.nodeHeight / 2;
-    assignPos(root.id, rootX, rootY);
+    const rootX = -LAYOUT.nodeWidth / 2;
+    const rootY = -LAYOUT.nodeHeight / 2;
+    pos[root.id] = { x: rootX, y: rootY };
 
-    const rightEdgeLeftSubtree = Math.max(
-      ...nodes.filter((n) => sideOf(n.id) === "L").map((n) => pos[n.id].x + LAYOUT.nodeWidth),
-      -Infinity
-    );
-    const leftEdgeRightSubtree = Math.min(
-      ...nodes.filter((n) => sideOf(n.id) === "R").map((n) => pos[n.id].x),
-      Infinity
-    );
-    if (rightEdgeLeftSubtree > -gap && rightEdgeLeftSubtree !== -Infinity) {
-      const shift = rightEdgeLeftSubtree - (-gap);
-      nodes.filter((n) => sideOf(n.id) === "L").forEach((n) => { pos[n.id].x -= shift; });
-    }
-    if (leftEdgeRightSubtree < gap && leftEdgeRightSubtree !== Infinity) {
-      const shift = gap - leftEdgeRightSubtree;
-      nodes.filter((n) => sideOf(n.id) === "R").forEach((n) => { pos[n.id].x += shift; });
-    }
+    const leftChild = childrenByParent.get(root.id)?.L;
+    const rightChild = childrenByParent.get(root.id)?.R;
+    if (leftChild) placeNode(leftChild.id, 1, 0, totalSlotsPerSide, "L");
+    if (rightChild) placeNode(rightChild.id, 1, totalSlotsPerSide, 2 * totalSlotsPerSide, "R");
 
     const shortLabel = (n: TreeNode) => {
       if (n.label.length <= 2) return n.label;
@@ -241,15 +225,22 @@ export function DashboardPage() {
       return n.label.slice(0, 2).toUpperCase();
     };
 
-    return nodes.map((n, index) => {
+    const sideOf = (nodeId: number): "L" | "R" => {
+      if (nodeId === root.id) return "L";
+      const parentId = edges.find((e) => e.to === nodeId)?.from;
+      if (parentId == null) return "L";
+      if (parentId === root.id) return (nodes.find((n) => n.id === nodeId)?.lane === "R" ? "R" : "L") as "L" | "R";
+      return sideOf(parentId);
+    };
+
+    return nodes.map((n) => {
       const p = pos[n.id];
-      const side = n.side ?? n.lane;
-      const fallbackX = side === "L" ? -gap - 200 - index * 50 : gap + index * 50;
-      const fallbackY = n.depth * SPACING.y;
+      const side = n.side ?? sideOf(n.id);
+      const fallbackY = n.depth * ROW_HEIGHT - LAYOUT.nodeHeight / 2;
       return {
         id: String(n.id),
         type: "userNode",
-        position: p ?? { x: fallbackX, y: fallbackY },
+        position: p ?? { x: side === "L" ? -leftExtent : gap, y: fallbackY },
         data: {
           label: n.label,
           isCurrent: n.is_current_user,
@@ -262,7 +253,7 @@ export function DashboardPage() {
         zIndex: 1,
       };
     });
-  }, [treeData, SPACING, LAYOUT]);
+  }, [treeData, LAYOUT]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -272,6 +263,14 @@ export function DashboardPage() {
     },
     [nodeMap]
   );
+
+  const onNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+    const d = (node.data as UserNodeData).depth;
+    setHoveredLevelLines([d, d + 1]);
+  }, []);
+  const onNodeMouseLeave = useCallback(() => {
+    setHoveredLevelLines((prev) => (prev.length ? [] : prev));
+  }, []);
 
   const initialEdges: Edge[] = useMemo(() => {
     if (!treeData?.edges?.length || !treeData?.nodes?.length) return [];
@@ -452,6 +451,8 @@ export function DashboardPage() {
                       onNodesChange={onNodesChange}
                       onEdgesChange={onEdgesChange}
                       onNodeClick={onNodeClick}
+                      onNodeMouseEnter={onNodeMouseEnter}
+                      onNodeMouseLeave={onNodeMouseLeave}
                       onPaneClick={() => setSelectedNode(null)}
                       nodeTypes={nodeTypes}
                       fitView
@@ -481,12 +482,15 @@ export function DashboardPage() {
                         color="rgba(113, 113, 122, 0.4)"
                         className="bg-[#1e1e2e]"
                       />
-                      {/* Vertical L/R split line through root node center (flow x=0) */}
+                      {/* Vertical L/R split line + horizontal depth level lines (hover to show) */}
                       {treeData.nodes.length > 0 && (() => {
                         const maxDepth = Math.max(...treeData.nodes.map((n) => n.depth));
-                        const lineHeight = maxDepth * SPACING.y + 400;
+                        const lineHeight = maxDepth * ROW_HEIGHT + 400;
+                        const levelLineStripHalf = 6000;
+                        const levelLineIndices = Array.from({ length: maxDepth + 1 }, (_, i) => i);
                         return (
                           <ViewportPortal>
+                            {/* Vertical divider through root */}
                             <svg
                               className="absolute pointer-events-none"
                               width={20}
@@ -528,6 +532,67 @@ export function DashboardPage() {
                                 strokeDasharray="8 6"
                                 strokeLinecap="round"
                               />
+                            </svg>
+                            {/* Horizontal depth separators: always visible (subtle); stronger on hover */}
+                            <svg
+                              className="absolute pointer-events-none"
+                              width={levelLineStripHalf * 2}
+                              height={lineHeight}
+                              style={{ left: -levelLineStripHalf, top: -LAYOUT.nodeHeight / 2 }}
+                              aria-hidden
+                            >
+                              <defs>
+                                <linearGradient id="level-line-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="rgb(113 113 122)" stopOpacity={0} />
+                                  <stop offset="50%" stopColor="rgb(113 113 122)" stopOpacity={0.5} />
+                                  <stop offset="100%" stopColor="rgb(113 113 122)" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              {levelLineIndices.map((i) => {
+                                const hovered = hoveredLevelLines.includes(i);
+                                const y = i * ROW_HEIGHT;
+                                return (
+                                  <line
+                                    key={i}
+                                    x1={0}
+                                    y1={y}
+                                    x2={levelLineStripHalf * 2}
+                                    y2={y}
+                                    stroke="url(#level-line-gradient)"
+                                    strokeWidth={hovered ? 2.5 : 1}
+                                    strokeOpacity={hovered ? 0.8 : 0.25}
+                                    strokeDasharray="8 6"
+                                    strokeLinecap="round"
+                                  />
+                                );
+                              })}
+                            </svg>
+                            {/* Hit areas for level lines: hover line → show it and neighbors */}
+                            <svg
+                              className="absolute pointer-events-auto"
+                              width={levelLineStripHalf * 2}
+                              height={lineHeight}
+                              style={{ left: -levelLineStripHalf, top: -LAYOUT.nodeHeight / 2 }}
+                              aria-hidden
+                            >
+                              {levelLineIndices.map((i) => (
+                                <rect
+                                  key={i}
+                                  x={0}
+                                  y={i * ROW_HEIGHT - 10}
+                                  width={levelLineStripHalf * 2}
+                                  height={20}
+                                  fill="transparent"
+                                  onMouseEnter={() =>
+                                    setHoveredLevelLines([
+                                      Math.max(0, i - 1),
+                                      i,
+                                      Math.min(maxDepth, i + 1),
+                                    ])
+                                  }
+                                  onMouseLeave={() => setHoveredLevelLines([])}
+                                />
+                              ))}
                             </svg>
                           </ViewportPortal>
                         );
