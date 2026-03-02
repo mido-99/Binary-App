@@ -14,6 +14,8 @@ import {
   MarkerType,
   ViewportPortal,
   Position,
+  ControlButton,
+  useReactFlow,
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -101,6 +103,37 @@ const nodeTypes = {
 };
 
 const PAGE_SIZE = 20;
+
+type TreeControlsProps = {
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
+};
+
+function TreeControls({ isFullscreen, onToggleFullscreen }: TreeControlsProps) {
+  const { fitView } = useReactFlow();
+  return (
+    <Controls
+      className="!bg-zinc-800/90 !border-zinc-600 !rounded-lg [&>button]:!bg-zinc-700 [&>button]:!text-zinc-200 [&>button:hover]:!bg-zinc-600"
+      showInteractive={false}
+      showFitView={false}
+    >
+      <ControlButton
+        className="!bg-zinc-700 !text-zinc-200 hover:!bg-zinc-600"
+        onClick={() => fitView({ padding: 0.25 })}
+        title="Fit tree"
+      >
+        ▭
+      </ControlButton>
+      <ControlButton
+        className="!bg-zinc-700 !text-zinc-200 hover:!bg-zinc-600"
+        onClick={onToggleFullscreen}
+        title={isFullscreen ? "Exit fullscreen" : "Fullscreen tree"}
+      >
+        {isFullscreen ? "⤢" : "⛶"}
+      </ControlButton>
+    </Controls>
+  );
+}
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
@@ -297,6 +330,8 @@ export function DashboardPage() {
     pending_bonus: "0.00",
   };
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <motion.section
@@ -416,7 +451,12 @@ export function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="relative h-[480px] rounded-b-lg overflow-hidden bg-[#1e1e2e]">
+              <div
+                className={cn(
+                  "relative h-[480px] rounded-b-lg overflow-hidden bg-[#1e1e2e]",
+                  isFullscreen && "fixed inset-0 z-40 h-screen rounded-none"
+                )}
+              >
                 {treeLoading ? (
                   <div className="h-full flex items-center justify-center text-zinc-400 text-sm">
                     Loading tree…
@@ -583,10 +623,22 @@ export function DashboardPage() {
                           </ViewportPortal>
                         );
                       })()}
-                      <Controls
-                        className="!bg-zinc-800/90 !border-zinc-600 !rounded-lg [&>button]:!bg-zinc-700 [&>button]:!text-zinc-200 [&>button:hover]:!bg-zinc-600"
-                        showInteractive={false}
+                      <TreeControls
+                        isFullscreen={isFullscreen}
+                        onToggleFullscreen={() => setIsFullscreen((v) => !v)}
                       />
+                      {isFullscreen && (
+                        <Panel position="top-right" className="mt-2 mr-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-zinc-800/80 border-zinc-600 text-zinc-100 hover:bg-zinc-700"
+                            onClick={() => setIsFullscreen(false)}
+                          >
+                            Exit fullscreen
+                          </Button>
+                        </Panel>
+                      )}
                       <Panel position="top-left" className="text-xs text-zinc-500 bg-zinc-800/80 rounded px-2 py-1.5 border border-zinc-600/50">
                         Pan: left drag · Zoom: scroll
                       </Panel>
