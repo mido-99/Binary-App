@@ -53,20 +53,20 @@ type UserNodeData = {
 
 const LANE_COLORS = {
   L: [
-    "bg-blue-400 border-blue-300 text-white",
-    "bg-blue-500 border-blue-400 text-white",
-    "bg-blue-600 border-blue-500 text-white",
-    "bg-blue-700 border-blue-600 text-white",
-    "bg-blue-800 border-blue-700 text-white",
-    "bg-blue-900 border-blue-800 text-white",
+    "bg-gradient-to-b from-blue-300 via-blue-400 to-blue-500 border-blue-300 text-white",
+    "bg-gradient-to-b from-blue-400 via-blue-500 to-blue-600 border-blue-400 text-white",
+    "bg-gradient-to-b from-blue-500 via-blue-600 to-blue-700 border-blue-500 text-white",
+    "bg-gradient-to-b from-blue-600 via-blue-700 to-blue-800 border-blue-600 text-white",
+    "bg-gradient-to-b from-blue-700 via-blue-800 to-blue-900 border-blue-700 text-white",
+    "bg-gradient-to-b from-blue-800 via-blue-900 to-blue-950 border-blue-800 text-white",
   ],
   R: [
-    "bg-red-400 border-red-300 text-white",
-    "bg-red-500 border-red-400 text-white",
-    "bg-red-600 border-red-500 text-white",
-    "bg-red-700 border-red-600 text-white",
-    "bg-red-800 border-red-700 text-white",
-    "bg-red-900 border-red-800 text-white",
+    "bg-gradient-to-b from-red-300 via-red-400 to-red-500 border-red-300 text-white",
+    "bg-gradient-to-b from-red-400 via-red-500 to-red-600 border-red-400 text-white",
+    "bg-gradient-to-b from-red-500 via-red-600 to-red-700 border-red-500 text-white",
+    "bg-gradient-to-b from-red-600 via-red-700 to-red-800 border-red-600 text-white",
+    "bg-gradient-to-b from-red-700 via-red-800 to-red-900 border-red-700 text-white",
+    "bg-gradient-to-b from-red-800 via-red-900 to-red-950 border-red-800 text-white",
   ],
 } as const;
 
@@ -270,11 +270,12 @@ export function DashboardPage() {
       target: String(e.to),
       sourceHandle: "bottom",
       targetHandle: "top",
-      type: "straight",
-      markerEnd: { type: MarkerType.ArrowClosed, color: "rgb(255 255 255)" },
+      type: "bezier",
+      animated: true,
+      markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(255,255,255,0.9)" },
       style: {
-        stroke: "rgb(255 255 255)",
-        strokeWidth: 2.5,
+        stroke: "rgba(255,255,255,0.9)",
+        strokeWidth: 2.2,
       },
     }));
   }, [treeData]);
@@ -456,10 +457,10 @@ export function DashboardPage() {
                       nodesDraggable={false}
                       elementsSelectable={true}
                       defaultEdgeOptions={{
-                        type: "straight",
-                        animated: false,
-                        markerEnd: { type: MarkerType.ArrowClosed, color: "rgb(255 255 255)" },
-                        style: { stroke: "rgb(255 255 255)", strokeWidth: 2.5 },
+                        type: "bezier",
+                        animated: true,
+                        markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(255,255,255,0.9)" },
+                        style: { stroke: "rgba(255,255,255,0.9)", strokeWidth: 2.2 },
                       }}
                       proOptions={{ hideAttribution: true }}
                       className="bg-[#1e1e2e]"
